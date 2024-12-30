@@ -38,3 +38,7 @@ venv/
 .venv/
 env/
 .virtualenv/
+
+# fonts
+dejavu-sans
+dejavu-sans/
