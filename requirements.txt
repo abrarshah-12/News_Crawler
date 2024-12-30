@@ -1,0 +1,5 @@
+requests
+firecrawl
+openai
+fpdf
+python-dotenv

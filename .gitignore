@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment variables
+.env
+
+# Output directories
+output/
+output/initial_md_files/
+output/content_md_files/
+output/json/
+output/csv/
+output/pdfs/
+output/logs.txt
+
+# Firecrawl temporary/cache files (if applicable)
+.firecrawl_cache/
+*.firecrawl
+
+# IDE or editor specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.bak
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Python virtual environments
+venv/
+.venv/
+env/
+.virtualenv/
