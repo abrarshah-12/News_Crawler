@@ -1,5 +1,6 @@
 requests
-firecrawl
+firecrawl-py
 openai
+google-generativeai
 fpdf
 python-dotenv
