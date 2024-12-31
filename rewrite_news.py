@@ -1,20 +1,10 @@
 import os
 import re
-import csv
 import json
 import time
 from datetime import datetime
 from dotenv import load_dotenv
 import google.generativeai as genai
-from reportlab.pdfgen import canvas
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.units import inch
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Paragraph
-from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
-from reportlab.lib.utils import simpleSplit
 import random
 
 # Load environment variables
@@ -26,15 +16,11 @@ MODEL = genai.GenerativeModel(MODEL_NAME)
 
 # Directory structure
 OUTPUT_DIR = "output"
-CONTENT_MD_DIR = os.path.join(OUTPUT_DIR, "content_md_files")
 JSON_DIR = os.path.join(OUTPUT_DIR, "json")
-PDF_DIR = os.path.join(OUTPUT_DIR, "pdfs")
 LOG_FILE = os.path.join(OUTPUT_DIR, "logs.txt")
-TIMES_NEW_ROMAN_FONT_PATH = 'fonts\\timr45w.ttf'
 
 # Ensure directories exist
 os.makedirs(JSON_DIR, exist_ok=True)
-os.makedirs(PDF_DIR, exist_ok=True)
 
 # Logging
 LOG_ENTRIES = []
@@ -106,14 +92,14 @@ def rewrite_articles_with_gemini(text, initial_delay=1, max_delay=16):
     delay = initial_delay
     retries = 0
     start_time = time.time()
+    prompt = f"""{PERSONA}
+            Given this news article content:
+            {text}
+             Analyze the article content to identify the main news. Then rewrite the main news into a catchy headline and a compelling, engaging article in a Daily Mail style. Remove any links, images, and markdown-like formatting. Do not use bullet points in the rewritten article, just a coherent and attractive narrative. Return the output as a python dictionary with `headline` and `content` keys. Make sure not to have any key or value as N/A. The word count should be between 300-400
+            """
 
     while True:
         try:
-            prompt = f"""{PERSONA}
-            Given this news article content:
-            {text}
-            Analyze the article content to identify the main news. Then rewrite the main news into a catchy headline and a compelling, engaging article in a Daily Mail style. Remove any links, images, and markdown-like formatting. Do not use bullet points in the rewritten article, just a coherent and attractive narrative.
-            """
             response = MODEL.generate_content(prompt)
             if response.text:
                 rewritten_text = response.text.strip()
@@ -132,131 +118,83 @@ def rewrite_articles_with_gemini(text, initial_delay=1, max_delay=16):
                 delay = min(delay * 2, max_delay)  # exponential backoff
                 retries += 1
             elif "Invalid operation: The `response.text` quick accessor requires the response to contain a valid `Part`, but none were returned." not in str(e):
-                 log(f"Unexpected Gemini API error, not retrying. {e}")
-                 break
-            elif "Invalid operation: The `response.text` quick accessor requires the response to contain a valid `Part`, but none were returned."  in str(e) :
-                log(f"Gemini API blocked content: {e}. Saving original content.")
-                return "BLOCKED_CONTENT"
+                log(f"Gemini API blocked content: {e}. Retries: {retries}")
+                retries += 1
+                if retries > 2:
+                  log(f"Gemini API blocked content even with new prompt, skipping this article {e}")
+                  return "BLOCKED_CONTENT"
+                else:
+                  prompt = f"""{PERSONA}
+                    Given this news article content:
+                    {text}
+                     Rewrite this news article by having an eye catching headline and creating engaging content in the style of the Daily Mail, make sure that it is between 300 and 500 words.
+                     Remove any links, images, and markdown-like formatting. Do not use bullet points. The output should be in a python dictionary with `headline` and `content` keys.
+                    """
+                  time.sleep(delay)
+                  delay = min(delay * 2, max_delay)
+            else:
+                log(f"Unexpected Gemini API error, not retrying. {e}")
+                break
         finally:
             # Add random delay to prevent rate limiting
             time.sleep(random.uniform(0.5, 1.5))
     return rewritten_text
 
 
-def process_and_save_rewritten_articles(content_md_dir, output_json_path, output_pdf_path):
-    """Reads MD files, rewrites articles with Gemini, saves to JSON and PDF."""
-    log(f"Starting to process and save rewritten articles from {content_md_dir}")
+def process_and_save_rewritten_articles(input_json_path, output_json_path):
+    """Reads JSON, rewrites articles with Gemini, saves to a new JSON file."""
+    log(f"Starting to process and save rewritten articles from {input_json_path}")
 
+    with open(input_json_path, "r", encoding="utf-8") as json_file:
+        articles = json.load(json_file)
     rewritten_articles = []
-    
-    for filename in os.listdir(content_md_dir):
-        if filename.endswith(".md"):
-            filepath = os.path.join(content_md_dir, filename)
-            with open(filepath, "r", encoding="utf-8") as md_file:
-                content = md_file.read()
-                # Split the file into articles based on the presence of a heading
-                articles = re.split(r'(?=\n#\s)', content)
-                
-                for article_content in articles:
-                  article_content = article_content.strip()
-                  if article_content:
-                      # Extract heading from content
-                      heading_match = re.search(r'#\s*(.+)', article_content)
-                      heading = heading_match.group(1).strip() if heading_match else "N/A"
-                      
-                      #Remove the heading
-                      article_content = re.sub(r'#\s*(.+)', '', article_content, 1).strip()
-                      if heading and article_content:
-                         rewritten_content = rewrite_articles_with_gemini(article_content)
-                         if rewritten_content and rewritten_content != "BLOCKED_CONTENT":
-                           rewritten_articles.append({"heading": rewritten_content.split("\n", 1)[0] if rewritten_content.count("\n") > 0 else heading , "content": rewritten_content.split("\n",1)[1]  if rewritten_content.count("\n") > 0 else rewritten_content})
-                           log(f"Rewrote article: {heading}")
-                         else:
-                            log(f"Could not rewrite content of the article due to Gemini API issues or blocked content: {heading}, saving original content.")
-                            rewritten_articles.append({"heading": heading, "content": article_content})
-                      else:
-                            log(f"Skipping row due to missing URL or Heading: {article_content}")
+
+    for article_data in articles:
+        content = article_data.get("content", "")
+        if content:
+            # Split the content into articles based on the presence of a heading
+            articles = re.split(r'(?=\n#\s)', content)
+            for article_content in articles:
+                article_content = article_content.strip()
+                if article_content:
+                    rewritten_output = rewrite_articles_with_gemini(article_content)
+                    if rewritten_output and rewritten_output != "BLOCKED_CONTENT":
+                        try:
+                            rewritten_dict = json.loads(rewritten_output)
+                            rewritten_articles.append({
+                              "content": rewritten_dict.get("content",""),
+                                "source": "gemini"
+                               })
+                        except json.JSONDecodeError:
+                             log(f"Gemini API returned text but the JSON is invalid, saving original content with source as original {rewritten_output}")
+                             rewritten_articles.append({
+                                 "content": rewritten_output,
+                                  "source": "gemini"
+                            })
+
+                    else:
+                        log(f"Could not rewrite content of the article due to Gemini API issues or blocked content, saving original content with source as original: {article_content}")
+                        rewritten_articles.append({
+                           "content": article_content,
+                            "source": "original"
+                         })
+        else:
+            log(f"Skipping row due to missing content: {article_data}")
 
     with open(output_json_path, "w", encoding="utf-8") as json_file:
         json.dump(rewritten_articles, json_file, indent=4)
         log(f"Saved rewritten articles to {output_json_path}")
-
-    # PDF Generation
-    log(f"Starting generation of PDF file")
-    c = canvas.Canvas(output_pdf_path, pagesize=letter)
-    pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
-    styles = getSampleStyleSheet()
-
-    h_style = styles['h1']
-    h_style.fontName = 'Times-Roman'
-    h_style.fontSize = 16  # Increased Heading Font size
-    h_style.alignment = TA_CENTER
-    
-    c_style = styles['Normal']
-    c_style.fontName = 'Times-Roman'
-    c_style.fontSize = 12
-    c_style.alignment = TA_JUSTIFY
-
-    def add_header_and_footer(c, page_num, total_pages):
-        c.saveState()
-        c.setFont('Times-Roman', 10)
-        c.drawCentredString(letter[0]/2, .5*inch, f'Page: {page_num}/{total_pages}')
-        c.restoreState()
-
-    total_pages = len(rewritten_articles)
-    y_position = 750
-
-    for i, article in enumerate(rewritten_articles):
-        heading = article["heading"]
-        content = article["content"]
-        
-        h_para = Paragraph(heading, h_style)
-        h_para.wrapOn(c, letter[0] - 2*inch, 10)
-        h_height = h_para.height
-
-        if y_position - h_height < inch:
-            add_header_and_footer(c, i+1, total_pages)
-            c.showPage()
-            y_position = 750
-
-        h_para.drawOn(c, inch, y_position)
-        y_position -= h_height + 0.2*inch
-
-        # Split the content into manageable lines
-        available_width = letter[0] - 2 * inch
-        lines = simpleSplit(content, c_style.fontName, c_style.fontSize, available_width)
-        
-        for line in lines:
-            c_para = Paragraph(line, c_style)
-            c_para.wrapOn(c, available_width, letter[1])
-            c_height = c_para.height
-            
-            if y_position - c_height < inch:
-                add_header_and_footer(c, i+1, total_pages)
-                c.showPage()
-                y_position = 750
-
-            c_para.drawOn(c, inch, y_position)
-            y_position -= c_height
-        
-        y_position -= 0.5 * inch
-
-    add_header_and_footer(c, total_pages, total_pages)
-    c.save()
-
-    log(f"PDF saved to {output_pdf_path}")
-    log(f"Finished processing all articles from {content_md_dir}")
+    log(f"Finished processing all articles from {input_json_path}")
 
 # Main function
 def main():
     """Main function to orchestrate the scraping, extraction, and saving."""
     # Get file paths
-    input_md_dir = os.path.join(OUTPUT_DIR, "content_md_files")
+    input_json_path = os.path.join(JSON_DIR, "cleaned_articles.json")
     output_json_path = os.path.join(JSON_DIR, "rewritten_articles.json")
-    output_pdf_path = os.path.join(PDF_DIR, "rewritten_articles.pdf")
 
-    log(f"Starting main function with input path {input_md_dir}")
-    process_and_save_rewritten_articles(input_md_dir, output_json_path, output_pdf_path)
+    log(f"Starting main function with input path {input_json_path}")
+    process_and_save_rewritten_articles(input_json_path, output_json_path)
 
     # Save logs
     save_logs()
