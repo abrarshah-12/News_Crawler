@@ -40,5 +40,5 @@ env/
 .virtualenv/
 
 # fonts
-dejavu-sans
-dejavu-sans/
+fonts
+fonts/
