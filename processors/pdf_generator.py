@@ -1,104 +1,92 @@
 # processors/pdf_generator.py
 import os
-import re
 import json
-from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.platypus import Paragraph
-from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
-from reportlab.lib.utils import simpleSplit
-
-from utils.logger import log
-from config import JSON_DIR, PDF_DIR, TIMES_NEW_ROMAN_FONT_PATH
+from config import TIMES_NEW_ROMAN_FONT_PATH, PDF_DIR
+from utils.logger import log, log_exception
 from utils.errors import FileProcessingError
 
 def process_and_save_articles(input_json_path, output_pdf_path):
-    """Reads JSON, rewrites articles with Gemini, saves to a PDF file."""
-    log(f"Starting to process and save rewritten articles from {input_json_path} to {output_pdf_path}")
+    """Generates a PDF from a JSON file containing articles."""
+    log(f"Starting PDF Generation from {input_json_path} and saving to {output_pdf_path}")
     try:
-      with open(input_json_path, "r", encoding="utf-8") as json_file:
-          articles = json.load(json_file)
-      
-      # PDF Generation
-      log(f"Starting generation of PDF file")
-      c = canvas.Canvas(output_pdf_path, pagesize=letter)
-      pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
-      styles = getSampleStyleSheet()
+        with open(input_json_path, "r", encoding="utf-8") as json_file:
+            articles = json.load(json_file)
 
-      h_style = styles['h1']
-      h_style.fontName = 'Times-Roman'
-      h_style.fontSize = 16
-      h_style.alignment = TA_CENTER
-      
-      c_style = styles['Normal']
-      c_style.fontName = 'Times-Roman'
-      c_style.fontSize = 12
-      c_style.alignment = TA_JUSTIFY
+        # PDF setup
+        pdfmetrics.registerFont(TTFont("Times-Roman", TIMES_NEW_ROMAN_FONT_PATH))
+        doc = SimpleDocTemplate(output_pdf_path, pagesize=letter)
+        story = []
 
-      title_style = styles['h1']
-      title_style.fontName = 'Times-Roman'
-      title_style.fontSize = 20
-      title_style.alignment = TA_CENTER
+        # Title Page
+        styles = getSampleStyleSheet()
+        title_style = ParagraphStyle(
+            name="TitleStyle",
+            fontName="Times-Roman",
+            fontSize=28,
+            alignment=1,  # Center alignment
+            spaceAfter=20
+        )
+        subtitle_style = ParagraphStyle(
+            name="SubTitleStyle",
+            fontName="Times-Italic",
+            fontSize=16,
+            alignment=1,  # Center alignment
+            spaceAfter=40
+        )
+        story.append(Spacer(1, 2 * inch))  # Add vertical spacing
+        story.append(Paragraph("UK Crime Chronicles", title_style))
+        story.append(Paragraph("A Deep Dive into Recent Headlines and Stories", subtitle_style))
+        story.append(PageBreak())  # Move to the next page
 
-      def add_header_and_footer(c, page_num, total_pages):
-        c.saveState()
-        c.setFont('Times-Roman', 10)
-        c.drawCentredString(letter[0]/2, .5*inch, f'Page: {page_num}/{total_pages}')
-        c.restoreState()
-      
-      total_pages = len(articles)
-      y_position = 750
-      
-      pdf_title = "Shocking UK Crime Stories"
-      title_para = Paragraph(pdf_title, title_style)
-      title_para.wrapOn(c, letter[0] - 2*inch, 10)
-      title_height = title_para.height
-      title_para.drawOn(c, inch, y_position)
-      y_position -= title_height + 0.5 * inch
+        # Styles for content
+        headline_style = ParagraphStyle(
+            name="HeadlineStyle",
+            fontName="Times-Bold",
+            fontSize=16,
+            alignment=1,  # Center alignment
+            leading=18,
+            spaceAfter=12
+        )
+        content_style = ParagraphStyle(
+            name="ContentStyle",
+            fontName="Times-Roman",
+            fontSize=12,
+            alignment=4,  # Justify alignment
+            leading=14,
+            spaceAfter=20
+        )
 
-      for i, article in enumerate(articles):
-          if article.get("source") == "gemini":
-            headline = article.get("headline", "N/A")
+        for article in articles:
+            headline = article.get("headline", "")
             content = article.get("content", "")
 
-            h_para = Paragraph(headline, h_style)
-            h_para.wrapOn(c, letter[0] - 2*inch, 10)
-            h_height = h_para.height
+            # Skip articles where the headline is missing or "N/A"
+            if not headline or headline == "N/A":
+                continue
 
-            if y_position - h_height < inch:
-                add_header_and_footer(c, i+1, total_pages)
-                c.showPage()
-                y_position = 750
+            # Add headline and content
+            story.append(Paragraph(headline, headline_style))
+            story.append(Paragraph(content, content_style))
+            story.append(Spacer(1, 0.5 * inch))  # Add spacing between articles
 
-            h_para.drawOn(c, inch, y_position)
-            y_position -= h_height + 0.2*inch
+        def add_footer(canvas, doc):
+            """Adds a footer with the page number."""
+            canvas.saveState()
+            canvas.setFont("Times-Roman", 10)
+            page_num = doc.page
+            text = f"Page {page_num}"
+            canvas.drawCentredString(letter[0] / 2.0, 0.5 * inch, text)
+            canvas.restoreState()
 
-            # Split the content into manageable lines
-            available_width = letter[0] - 2 * inch
-            lines = simpleSplit(content, c_style.fontName, c_style.fontSize, available_width)
-            
-            for line in lines:
-                c_para = Paragraph(line, c_style)
-                c_para.wrapOn(c, available_width, letter[1])
-                c_height = c_para.height
-                
-                if y_position - c_height < inch:
-                  add_header_and_footer(c, i+1, total_pages)
-                  c.showPage()
-                  y_position = 750
+        doc.build(story, onLaterPages=add_footer)
+        log(f"PDF generated successfully at {output_pdf_path}")
 
-                c_para.drawOn(c, inch, y_position)
-                y_position -= c_height
-           
-            y_position -= 0.5 * inch
-      add_header_and_footer(c, total_pages, total_pages)
-      c.save()
-
-      log(f"PDF saved to {output_pdf_path}")
-      log(f"Finished processing all articles from {input_json_path}")
     except Exception as e:
-      raise FileProcessingError(f"Error generating PDF file: {e}")
+        log_exception(e, f"Error during PDF generation: {e}")
+        raise FileProcessingError(f"Error during PDF generation: {e}")

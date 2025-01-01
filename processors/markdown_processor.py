@@ -2,11 +2,11 @@
 import os
 import re
 import csv
-from utils.logger import log
+from utils.logger import log, log_exception
 from config import INITIAL_MD_DIR, CONTENT_MD_DIR
 from utils.helpers import sanitize_filename
 from scrapers.firecrawl_scraper import scrape_data
-from utils.errors import FileProcessingError
+from utils.errors import FileProcessingError, FirecrawlError
 
 def save_markdown(markdown_content, base_name):
     """Saves scraped data to a Markdown file."""
@@ -39,17 +39,22 @@ def save_articles_to_md(top_articles_path):
                 url = row["URL"]
                 heading = row["Heading"]
                 if url and heading:
-                    content = scrape_data(url)
-                    if content:
-                        heading, content = extract_heading_content(content)
-                        sanitized_heading = sanitize_filename(heading)
-                        output_file_path = os.path.join(CONTENT_MD_DIR, f"{sanitized_heading}.md")
-                        
-                        with open(output_file_path, "w", encoding="utf-8") as md_file:
-                            md_file.write(f"# {heading}\n\n{content}")
-                        log(f"Saved article to {output_file_path}")
-                    else:
-                        log(f"Could not scrape data from {url}, skipping this article")
+                    try:
+                      content = scrape_data(url)
+                      if content:
+                          heading, content = extract_heading_content(content)
+                          sanitized_heading = sanitize_filename(heading)
+                          output_file_path = os.path.join(CONTENT_MD_DIR, f"{sanitized_heading}.md")
+                          
+                          with open(output_file_path, "w", encoding="utf-8") as md_file:
+                              md_file.write(f"# {heading}\n\n{content}")
+                          log(f"Saved article to {output_file_path}")
+                      else:
+                          log(f"Could not scrape data from {url}, skipping this article")
+                    except FirecrawlError as e:
+                        log_exception(e, f"Error during firecrawl scraping for article with url: {url}, skipping")
+                        continue
+
                 else:
                     log(f"Skipping row due to missing URL or Heading: {row}")
         log(f"Finished saving all the articles to {CONTENT_MD_DIR}")
