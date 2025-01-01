@@ -1,46 +1,21 @@
+# processors/gemini_rewriter.py
 import os
 import re
 import json
 import time
-from datetime import datetime
-from dotenv import load_dotenv
-import google.generativeai as genai
 import random
+import google.generativeai as genai
+from utils.logger import log
+from config import JSON_DIR, GEMINI_API_KEY
+from utils.errors import GeminiError, ProcessingError
 
-# Load environment variables
-load_dotenv()
 
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# Setup Gemini API
+if not GEMINI_API_KEY:
+  raise GeminiError("Gemini API Key missing")
+genai.configure(api_key=GEMINI_API_KEY)
 MODEL_NAME = 'gemini-pro'
 MODEL = genai.GenerativeModel(MODEL_NAME)
-
-# Directory structure
-OUTPUT_DIR = "output"
-JSON_DIR = os.path.join(OUTPUT_DIR, "json")
-LOG_FILE = os.path.join(OUTPUT_DIR, "logs.txt")
-
-# Ensure directories exist
-os.makedirs(JSON_DIR, exist_ok=True)
-
-# Logging
-LOG_ENTRIES = []
-
-def log(message):
-    """Logs a message to the console and log file."""
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log_entry = f"[{timestamp}] {message}"
-    print(log_entry)
-    LOG_ENTRIES.append(log_entry)
-
-def save_logs():
-    """Saves logs to a log file."""
-    with open(LOG_FILE, "w", encoding="utf-8") as log_file:
-        log_file.write("\n".join(LOG_ENTRIES))
-
-# Sanitize filenames
-def sanitize_filename(name):
-    """Sanitizes a string to use as a valid filename."""
-    return re.sub(r'[\\/*?:"<>|]', "_", name)
 
 PERSONA = """1. Sensationalist Tone
 Style: Articles often use eye-catching headlines, sometimes exaggerated, to grab attention.
@@ -84,8 +59,6 @@ Purpose: Appeal to readers’ fears and sense of urgency.
 
 The Daily Mail editor persona operates with the primary goal of engaging a broad yet specific audience by combining sensationalism, relatability, and visual storytelling with a strong editorial slant."""
 
-
-# Rewrite articles using Gemini, chunking requests
 def rewrite_articles_with_gemini(text, initial_delay=1, max_delay=16):
     """Rewrites text using Gemini with retry logic and throttling."""
     rewritten_text = ""
@@ -95,7 +68,8 @@ def rewrite_articles_with_gemini(text, initial_delay=1, max_delay=16):
     prompt = f"""{PERSONA}
             Given this news article content:
             {text}
-             Analyze the article content to identify the main news. Then rewrite the main news into a catchy headline and a compelling, engaging article in a Daily Mail style. Remove any links, images, and markdown-like formatting. Do not use bullet points in the rewritten article, just a coherent and attractive narrative. Return the output as a python dictionary with `headline` and `content` keys. Make sure not to have any key or value as N/A. The word count should be between 300-400
+             Analyze the article content to identify the main news. Then rewrite the main news into a catchy headline and a compelling, engaging article in a Daily Mail style. Remove any links, images, and markdown-like formatting. Do not use bullet points in the rewritten article, just a coherent and attractive narrative. The word count should be between 300-400.
+             Return the output as a JSON object with keys `headline` and `content`, ensure that there is no key or value as N/A.
             """
 
     while True:
@@ -128,7 +102,7 @@ def rewrite_articles_with_gemini(text, initial_delay=1, max_delay=16):
                     Given this news article content:
                     {text}
                      Rewrite this news article by having an eye catching headline and creating engaging content in the style of the Daily Mail, make sure that it is between 300 and 500 words.
-                     Remove any links, images, and markdown-like formatting. Do not use bullet points. The output should be in a python dictionary with `headline` and `content` keys.
+                     Remove any links, images, and markdown-like formatting. Do not use bullet points. The output should be in a JSON object with keys `headline` and `content`.
                     """
                   time.sleep(delay)
                   delay = min(delay * 2, max_delay)
@@ -141,64 +115,51 @@ def rewrite_articles_with_gemini(text, initial_delay=1, max_delay=16):
     return rewritten_text
 
 
+
 def process_and_save_rewritten_articles(input_json_path, output_json_path):
     """Reads JSON, rewrites articles with Gemini, saves to a new JSON file."""
     log(f"Starting to process and save rewritten articles from {input_json_path}")
+    try:
+      with open(input_json_path, "r", encoding="utf-8") as json_file:
+          articles = json.load(json_file)
+      rewritten_articles = []
 
-    with open(input_json_path, "r", encoding="utf-8") as json_file:
-        articles = json.load(json_file)
-    rewritten_articles = []
-
-    for article_data in articles:
-        content = article_data.get("content", "")
-        if content:
-            # Split the content into articles based on the presence of a heading
-            articles = re.split(r'(?=\n#\s)', content)
-            for article_content in articles:
-                article_content = article_content.strip()
-                if article_content:
-                    rewritten_output = rewrite_articles_with_gemini(article_content)
-                    if rewritten_output and rewritten_output != "BLOCKED_CONTENT":
-                        try:
-                            rewritten_dict = json.loads(rewritten_output)
-                            rewritten_articles.append({
-                              "content": rewritten_dict.get("content",""),
-                                "source": "gemini"
-                               })
-                        except json.JSONDecodeError:
-                             log(f"Gemini API returned text but the JSON is invalid, saving original content with source as original {rewritten_output}")
-                             rewritten_articles.append({
+      for article_data in articles:
+          content = article_data.get("content", "")
+          if content:
+              # Split the content into articles based on the presence of a heading
+              articles = re.split(r'(?=\n#\s)', content)
+              for article_content in articles:
+                  article_content = article_content.strip()
+                  if article_content:
+                      rewritten_output = rewrite_articles_with_gemini(article_content)
+                      if rewritten_output and rewritten_output != "BLOCKED_CONTENT":
+                          try:
+                              rewritten_dict = json.loads(rewritten_output)
+                              rewritten_articles.append({
+                                 "headline": rewritten_dict.get("headline",""),
+                                "content": rewritten_dict.get("content",""),
+                                  "source": "gemini"
+                                 })
+                          except json.JSONDecodeError:
+                               log(f"Gemini API returned text but the JSON is invalid, saving original content with source as original {rewritten_output}")
+                               rewritten_articles.append({
                                  "content": rewritten_output,
                                   "source": "gemini"
                             })
 
-                    else:
-                        log(f"Could not rewrite content of the article due to Gemini API issues or blocked content, saving original content with source as original: {article_content}")
-                        rewritten_articles.append({
-                           "content": article_content,
-                            "source": "original"
-                         })
-        else:
-            log(f"Skipping row due to missing content: {article_data}")
+                      else:
+                          log(f"Could not rewrite content of the article due to Gemini API issues or blocked content, saving original content with source as original: {article_content}")
+                          rewritten_articles.append({
+                            "content": article_content,
+                              "source": "original"
+                           })
+          else:
+              log(f"Skipping row due to missing content: {article_data}")
 
-    with open(output_json_path, "w", encoding="utf-8") as json_file:
-        json.dump(rewritten_articles, json_file, indent=4)
-        log(f"Saved rewritten articles to {output_json_path}")
-    log(f"Finished processing all articles from {input_json_path}")
-
-# Main function
-def main():
-    """Main function to orchestrate the scraping, extraction, and saving."""
-    # Get file paths
-    input_json_path = os.path.join(JSON_DIR, "cleaned_articles.json")
-    output_json_path = os.path.join(JSON_DIR, "rewritten_articles.json")
-
-    log(f"Starting main function with input path {input_json_path}")
-    process_and_save_rewritten_articles(input_json_path, output_json_path)
-
-    # Save logs
-    save_logs()
-    log(f"Finished main function")
-
-if __name__ == "__main__":
-    main()
+      with open(output_json_path, "w", encoding="utf-8") as json_file:
+          json.dump(rewritten_articles, json_file, indent=4)
+          log(f"Saved rewritten articles to {output_json_path}")
+      log(f"Finished processing all articles from {input_json_path}")
+    except Exception as e:
+       raise ProcessingError(f"Error during rewriting the article by gemini: {e}")
