@@ -1,4 +1,3 @@
-# processors/pdf_generator.py
 import os
 import json
 from reportlab.lib.pagesizes import letter

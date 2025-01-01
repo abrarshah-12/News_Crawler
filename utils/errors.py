@@ -1,5 +1,3 @@
-# utils/errors.py
-
 class ScraperError(Exception):
     """Base class for scraper exceptions."""
     pass

@@ -1,4 +1,3 @@
-# main.py
 import os
 from utils.logger import log, configure_logger, log_exception
 from config import SOURCE_URLS, CSV_DIR, JSON_DIR, PDF_DIR
@@ -11,7 +10,6 @@ from processors.openai_rewriter import process_and_save_rewritten_articles as op
 from processors.pdf_generator import process_and_save_articles
 from utils.helpers import sanitize_filename
 from utils.errors import FirecrawlError, FileProcessingError, GeminiError, ProcessingError
-
 
 def main():
     configure_logger()
@@ -46,7 +44,7 @@ def main():
           try:
             save_all_articles_to_csv(all_articles, base_name)
           except FileProcessingError as e:
-            log_exception(e, f"Error saving all articles to CSV")
+            log_exception(e, "Error saving all articles to CSV")
 
         else:
             log("No articles were found during the scraping.")

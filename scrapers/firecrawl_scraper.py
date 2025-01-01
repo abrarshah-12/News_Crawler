@@ -1,4 +1,3 @@
-# scrapers/firecrawl_scraper.py
 import time
 import re
 from firecrawl import FirecrawlApp

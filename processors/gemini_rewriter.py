@@ -1,4 +1,3 @@
-# processors/gemini_rewriter.py
 import os
 import re
 import json

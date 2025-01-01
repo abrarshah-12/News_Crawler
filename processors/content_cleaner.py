@@ -1,4 +1,3 @@
-# processors/content_cleaner.py
 import os
 import re
 import json

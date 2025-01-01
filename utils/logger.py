@@ -1,4 +1,3 @@
-# utils/logger.py
 import logging
 from datetime import datetime
 from config import LOG_FILE

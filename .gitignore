@@ -38,7 +38,3 @@ venv/
 .venv/
 env/
 .virtualenv/
-
-# fonts
-fonts
-fonts/

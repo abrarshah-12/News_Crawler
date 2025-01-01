@@ -1,5 +1,3 @@
-# utils/helpers.py
-
 import re
 
 def sanitize_filename(name):
