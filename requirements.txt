@@ -4,3 +4,4 @@ openai
 google-generativeai
 fpdf
 python-dotenv
+reportlab
