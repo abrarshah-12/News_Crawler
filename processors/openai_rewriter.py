@@ -58,7 +58,7 @@ Purpose: Drive higher engagement and encourage readers to click through.
 Style: Highlight potential risks, scandals, or failures, often with a negative slant.
 Purpose: Appeal to readers’ fears and sense of urgency.
 
-The Daily Mail editor persona operates with the primary goal of engaging a broad yet specific audience by combining sensationalism, relatability, and visual storytelling with a strong editorial slant."""
+The Daily Tuesday editor persona operates with the primary goal of engaging a broad yet specific audience by combining sensationalism, relatability, and visual storytelling with a strong editorial slant."""
 
 def rewrite_articles_with_openai(text, initial_delay=1, max_delay=32):
     """Rewrites text using OpenAI with retry logic and throttling."""
