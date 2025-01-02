@@ -1,7 +1,12 @@
-requests
-firecrawl-py
-openai
-google-generativeai
-fpdf
 python-dotenv
+firecrawl
+google-generativeai
 reportlab
+openai
+apscheduler
+fastapi
+uvicorn
+jinja2
+python-multipart
+psycopg2-binary
+schedule

@@ -1,6 +1,12 @@
+# main.py
 import os
+import json
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.application import MIMEApplication
 from utils.logger import log, configure_logger, log_exception
-from config import SOURCE_URLS, CSV_DIR, JSON_DIR, PDF_DIR
+from config import SOURCE_URLS, CSV_DIR, JSON_DIR, PDF_DIR, EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD, EMAIL_FROM, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 from scrapers.firecrawl_scraper import scrape_data, extract_article_links
 from processors.csv_processor import save_all_articles_to_csv, clean_csv, select_and_save_top_articles
 from processors.markdown_processor import save_markdown, save_articles_to_md
@@ -10,6 +16,64 @@ from processors.openai_rewriter import process_and_save_rewritten_articles as op
 from processors.pdf_generator import process_and_save_articles
 from utils.helpers import sanitize_filename
 from utils.errors import FirecrawlError, FileProcessingError, GeminiError, ProcessingError
+import psycopg2
+
+
+
+def load_subscribers():
+    """Loads subscribers from the database."""
+    conn = None
+    subscribers = []
+    try:
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD
+        )
+        with conn.cursor() as cur:
+            cur.execute("SELECT email FROM subscribers")
+            subscriber_emails = cur.fetchall()
+            subscribers = [email[0] for email in subscriber_emails]
+    except Exception as e:
+         log_exception(e, "Error fetching subscribers from the database.")
+         subscribers=[]
+    finally:
+        if conn:
+            conn.close()
+    return subscribers
+
+
+
+def send_email(pdf_path, subscribers):
+    """Sends the generated PDF to subscribers."""
+    if not subscribers:
+        log("No subscribers, Email sending will be skipped", level=40)
+        return
+
+    try:
+        msg = MIMEMultipart()
+        msg["From"] = EMAIL_FROM
+        msg["To"] = ", ".join(subscribers)
+        msg["Subject"] = "Daily Crime News Report"
+
+        body = "Here is your Daily Crime News Report.\n\n"
+        msg.attach(MIMEText(body, "plain"))
+
+        with open(pdf_path, "rb") as f:
+            pdf_attachment = MIMEApplication(f.read(), _subtype="pdf")
+            pdf_attachment.add_header('Content-Disposition', 'attachment', filename=os.path.basename(pdf_path))
+            msg.attach(pdf_attachment)
+
+        with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.send_message(msg)
+        log(f"Email sent successfully to {len(subscribers)} subscribers")
+    except Exception as e:
+        log_exception(e, "Error sending email")
+
 
 def main():
     configure_logger()
@@ -44,7 +108,7 @@ def main():
           try:
             save_all_articles_to_csv(all_articles, base_name)
           except FileProcessingError as e:
-            log_exception(e, "Error saving all articles to CSV")
+            log_exception(e, f"Error saving all articles to CSV")
 
         else:
             log("No articles were found during the scraping.")
@@ -100,6 +164,11 @@ def main():
            process_and_save_articles(input_json_path, output_pdf_path)
         except FileProcessingError as e:
           log_exception(e, "Error generating the PDF")
+          return # Stop processing
+
+        # Step 10 : Send email
+        subscribers = load_subscribers()
+        send_email(output_pdf_path, subscribers)
 
 
         log("Finished the news processing pipeline successfully.")

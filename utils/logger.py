@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from config import LOG_FILE
-
+import sys
 
 # Configure logging
 def configure_logger():
@@ -11,13 +11,15 @@ def configure_logger():
         format="%(asctime)s [%(levelname)s]: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    # Add a console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(logging.INFO)
-    console_format = logging.Formatter("%(asctime)s [%(levelname)s]: %(message)s",
-                                      datefmt="%Y-%m-%d %H:%M:%S", )
-    console_handler.setFormatter(console_format)
-    logging.getLogger('').addHandler(console_handler)
+    # Add a console handler if running interactively
+    if sys.stdout.isatty():
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_format = logging.Formatter("%(asctime)s [%(levelname)s]: %(message)s",
+                                          datefmt="%Y-%m-%d %H:%M:%S", )
+        console_handler.setFormatter(console_format)
+        logging.getLogger('').addHandler(console_handler)
+
 
 def log(message, level=logging.INFO):
     """Logs a message to the console and the log file."""
