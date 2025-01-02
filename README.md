@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # UK Crime News Aggregator and Rewriter
 
 This project is a Python-based system designed to scrape, process, and reformat news articles related to crime in the UK, ultimately generating a well-formatted PDF document. It utilizes web scraping, natural language processing via LLMs (OpenAI and Gemini), and PDF generation libraries. It also includes a subscription functionality where users can provide their email and get the news report.
@@ -159,3 +160,6 @@ News_Crawler/
 *   **Better LLM Prompting:** Fine-tune the prompts used with OpenAI and Gemini to achieve more consistent and accurate outputs.
 *   **Configuration Flexibility:** Allow more flexible configuration options, such as dynamic source lists, and API keys using configuration files.
 *   **User Interface:** Implement a more sophisticated user interface for subscriptions, such as an interface for managing existing subscription.
+=======
+# NewsCrawler
+>>>>>>> f662a43869548e7a96ceaf10a2c8d05aca76244e
