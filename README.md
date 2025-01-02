@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # UK Crime News Aggregator and Rewriter
 
 This project is a Python-based system designed to scrape, process, and reformat news articles related to crime in the UK, ultimately generating a well-formatted PDF document. It utilizes web scraping, natural language processing via LLMs (OpenAI and Gemini), and PDF generation libraries. It also includes a subscription functionality where users can provide their email and get the news report.
@@ -72,8 +71,8 @@ Here's a step-by-step overview of how data flows through the application:
 
 1.  **Clone Repository:**
     ```bash
-    git clone https://github.com/abrarshah-12/News_Crawler.git
-    cd News_Crawler
+    git clone https://github.com/Imobisoftltd/NewsCrawler.git
+    cd NewsCrawler
     ```
 2.  **Install Dependencies:**
     ```bash
@@ -123,35 +122,42 @@ The project is equipped with comprehensive error handling and logging capabiliti
 
 ## Directory Structure
 
-News_Crawler/
-├── main.py # Entry point, orchestrates the workflow
-├── config.py # Configuration settings (API keys, DB details)
-├── web_app.py # FastAPI app for subscription form.
-├── utils/
-│ ├── logger.py # Logging functionalities
-│ ├── errors.py # Custom error handling
-│ ├── helpers.py # Helper functions (e.g., sanitize_filename)
-├── scrapers/
-│ ├── firecrawl_scraper.py # Firecrawl-specific scraping
-├── processors/
-│ ├── csv_processor.py # CSV related operations
-│ ├── markdown_processor.py # Markdown related operations
-│ ├── content_cleaner.py # Content Cleaning operations
-│ ├── gemini_rewriter.py # LLM operations
-│ ├── openai_rewriter.py # LLM operations using OpenAI
-│ ├── pdf_generator.py # PDF operations
-├── templates/
-│ ├── index.html # Subscription form html page
-│ ├── success.html # Successfull subscription page
-│ ├── already_subscribed.html #Already subscribed page
-├── static/
-│ ├── styles.css # Stylesheet for web app
-├── requirements.txt # To store the python library names
-├── .env # Configuration parameters (API keys, database details). Should be gitignored
-├── fonts/
-│ └── timr45w.ttf # Font File for pdf
-
-
+```bash
+NewsCrawler/
+├── main.py                    # Entry point, orchestrates the workflow
+├── config.py                  # Configuration settings (API keys, DB details)
+├── web_app.py                 # FastAPI app for subscription form.
+├── utils/                     
+│   ├── logger.py              # Logging functionalities
+│   ├── errors.py              # Custom error handling
+│   ├── helpers.py             # Helper functions (e.g., sanitize_filename)
+├── scrapers/                  
+│   ├── firecrawl_scraper.py   # Firecrawl-specific scraping
+├── processors/                
+│   ├── csv_processor.py       # CSV related operations
+│   ├── markdown_processor.py  # Markdown related operations
+│   ├── content_cleaner.py     # Content Cleaning operations
+│   ├── gemini_rewriter.py     # LLM operations (Google Gemini)
+│   ├── openai_rewriter.py     # LLM operations (OpenAI)
+│   ├── pdf_generator.py       # PDF operations
+├── templates/                 
+│   ├── index.html             # Subscription form HTML page
+│   ├── success.html           # Successful subscription page
+│   ├── already_subscribed.html # Already subscribed page
+├── static/                    
+│   ├── styles.css             # Stylesheet for web app
+├── requirements.txt           # To store the Python library names
+├── .env                       # Configuration parameters (API keys, database details)
+├── fonts/                     
+│   └── timr45w.ttf            # Font File for PDF
+├── output/                    
+│   ├── initial_md_files/      # Scraped markdown files
+│   ├── csv/                   # CSV files (all_articles.csv, cleaned_articles.csv, top_articles.csv)
+│   ├── content_md_files/     # Articles scraped from links in top_articles.csv
+│   ├── json/                  # JSON files (cleaned_articles.json, rewritten_articles.json)
+│   ├── pdfs/                  # Generated PDF (clean_rewritten.pdf)
+│   └── logs.txt               # Execution logs
+```
 
 ## Future Enhancements
 
@@ -160,6 +166,3 @@ News_Crawler/
 *   **Better LLM Prompting:** Fine-tune the prompts used with OpenAI and Gemini to achieve more consistent and accurate outputs.
 *   **Configuration Flexibility:** Allow more flexible configuration options, such as dynamic source lists, and API keys using configuration files.
 *   **User Interface:** Implement a more sophisticated user interface for subscriptions, such as an interface for managing existing subscription.
-=======
-# NewsCrawler
->>>>>>> f662a43869548e7a96ceaf10a2c8d05aca76244e
