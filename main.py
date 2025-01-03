@@ -1,6 +1,4 @@
-# main.py
 import os
-import json
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -17,8 +15,7 @@ from processors.pdf_generator import process_and_save_articles
 from utils.helpers import sanitize_filename
 from utils.errors import FirecrawlError, FileProcessingError, GeminiError, ProcessingError
 import psycopg2
-
-
+import datetime
 
 def load_subscribers():
     """Loads subscribers from the database."""
@@ -77,7 +74,7 @@ def send_email(pdf_path, subscribers):
 
 def main():
     configure_logger()
-    log("Starting the news processing pipeline...")
+    log(f"Starting the news processing pipeline at: {datetime.datetime.now()}")
     all_articles = []
     try:
         # Step 1 & 2: Scrape, save to MD, and extract articles
@@ -108,7 +105,7 @@ def main():
           try:
             save_all_articles_to_csv(all_articles, base_name)
           except FileProcessingError as e:
-            log_exception(e, f"Error saving all articles to CSV")
+            log_exception(e, "Error saving all articles to CSV")
 
         else:
             log("No articles were found during the scraping.")
@@ -170,11 +167,7 @@ def main():
         subscribers = load_subscribers()
         send_email(output_pdf_path, subscribers)
 
-
         log("Finished the news processing pipeline successfully.")
 
     except Exception as e:
        log_exception(e, "An unexpected error occurred during the pipeline")
-
-if __name__ == "__main__":
-    main()
