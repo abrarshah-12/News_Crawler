@@ -6,6 +6,7 @@ from config import INITIAL_MD_DIR, CONTENT_MD_DIR
 from utils.helpers import sanitize_filename
 from scrapers.firecrawl_scraper import scrape_data
 from utils.errors import FileProcessingError, FirecrawlError
+import shutil
 
 def save_markdown(markdown_content, base_name):
     """Saves scraped data to a Markdown file."""
@@ -32,6 +33,13 @@ def save_articles_to_md(top_articles_path):
     """Saves the content of top articles to markdown files."""
     log(f"Starting to save articles from {top_articles_path} to markdown files")
     try:
+        # Clear the content_md_dir before adding content
+        if os.path.exists(CONTENT_MD_DIR):
+           log(f"Clearing existing content from directory {CONTENT_MD_DIR}")
+           shutil.rmtree(CONTENT_MD_DIR)
+
+        os.makedirs(CONTENT_MD_DIR, exist_ok=True)
+        
         with open(top_articles_path, "r", encoding="utf-8", newline="") as csv_file:
             reader = csv.DictReader(csv_file)
             for row in reader:
@@ -39,17 +47,17 @@ def save_articles_to_md(top_articles_path):
                 heading = row["Heading"]
                 if url and heading:
                     try:
-                      content = scrape_data(url)
-                      if content:
-                          heading, content = extract_heading_content(content)
-                          sanitized_heading = sanitize_filename(heading)
-                          output_file_path = os.path.join(CONTENT_MD_DIR, f"{sanitized_heading}.md")
-                          
-                          with open(output_file_path, "w", encoding="utf-8") as md_file:
-                              md_file.write(f"# {heading}\n\n{content}")
-                          log(f"Saved article to {output_file_path}")
-                      else:
-                          log(f"Could not scrape data from {url}, skipping this article")
+                        content = scrape_data(url)
+                        if content:
+                            heading, content = extract_heading_content(content)
+                            sanitized_heading = sanitize_filename(heading)
+                            output_file_path = os.path.join(CONTENT_MD_DIR, f"{sanitized_heading}.md")
+                            
+                            with open(output_file_path, "w", encoding="utf-8") as md_file:
+                                md_file.write(f"# {heading}\n\n{content}")
+                            log(f"Saved article to {output_file_path}")
+                        else:
+                            log(f"Could not scrape data from {url}, skipping this article")
                     except FirecrawlError as e:
                         log_exception(e, f"Error during firecrawl scraping for article with url: {url}, skipping")
                         continue
