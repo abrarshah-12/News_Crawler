@@ -61,39 +61,35 @@ Purpose: Appeal to readers’ fears and sense of urgency.
 The Daily Tuesday editor persona operates with the primary goal of engaging a broad yet specific audience by combining sensationalism, relatability, and visual storytelling with a strong editorial slant."""
 
 def rewrite_articles_with_openai(text, initial_delay=1, max_delay=32):
-    """Rewrites text using OpenAI with retry logic and throttling."""
+    """Rewrites text using OpenAI with retry logic and ensures proper structured output."""
     rewritten_text = ""
     delay = initial_delay
     retries = 0
     start_time = time.time()
     prompt = f"""{PERSONA}
-Given this news article content:
-{text}
-Rewrite the main news into a catchy headline and a compelling, engaging article in a Daily Mail style, using UK English. Remove any links, images, and markdown-like formatting. Do not use bullet points in the rewritten article, just a coherent and attractive narrative. The word count should be between 300-400.
-Return the output as a JSON object strictly formatted as:
-{{
-    \"headline\": \"<Your headline here>\",
-    \"content\": \"<Your content here>\"
-}}
-Do not include any additional text or formatting outside this structure.
-"""
+    Given this news article content:
+    {text}
+    Analyze the article content to identify the main news. Then rewrite the main news into a catchy headline and a compelling, engaging article in a Daily Mail style, using UK English. Remove any links, images, and markdown-like formatting.
+    Ensure that the rewritten article is broken into paragraphs for readability, and paragraphs should be separated by two newlines `\\n\\n`. The word count should be between 300-400.
+    Return the output as a JSON object with keys `headline` and `content`, ensuring that no key or value is left as N/A.
+    """
 
     while retries < 5:
         try:
             response = openai.ChatCompletion.create(
                 model="gpt-4o",
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+                messages=[{"role": "user", "content": prompt}]
             )
 
             if response.choices and response.choices[0].message.content:
                 rewritten_text = response.choices[0].message.content.strip()
                 log(f"Raw response from OpenAI: {rewritten_text}")
-                end_time = time.time()
-                time_taken = end_time - start_time
-                log(f"OpenAI API returned text. Time taken: {time_taken:.2f}s. Retries: {retries}")
-                break  # Exit the retry loop if successful
+                # Check if JSON is embedded inside the content field
+                if "```json" in rewritten_text:
+                    match = re.search(r"```json\n(.*?)\n```", rewritten_text, re.DOTALL)
+                    if match:
+                        rewritten_text = match.group(1)
+                return rewritten_text  # Exit retry loop if successful
             else:
                 log(f"OpenAI API returned no text. Retries: {retries}")
                 break
@@ -102,18 +98,21 @@ Do not include any additional text or formatting outside this structure.
             if '429' in str(e) or "rate limit" in str(e):
                 log(f"Rate limit hit. Retrying in {delay} seconds...")
                 time.sleep(delay)
-                delay = min(delay * 2, max_delay)  # exponential backoff
+                delay = min(delay * 2, max_delay)
                 retries += 1
-            elif "maximum context length" in str(e).lower():
-                log(f"OpenAI context length exceeded, skipping this article. {e}")
+            elif "This model's maximum context length is 16385 tokens" in str(e).lower():
+                log(f"OpenAI context length exceeded, skipping this article.")
                 return "BLOCKED_CONTENT"
             else:
-                log(f"Unexpected OpenAI API error, not retrying. {e}")
+                log(f"Unexpected OpenAI API error, not retrying.")
                 break
-    return rewritten_text
+        finally:
+            time.sleep(random.uniform(0.5, 1.5))
+    return rewritten_text or '{"headline": "N/A", "content": "N/A"}'
+
 
 def process_and_save_rewritten_articles(input_json_path, output_json_path):
-    """Reads JSON, rewrites articles with OpenAI, saves to a new JSON file."""
+    """Reads JSON, rewrites articles with OpenAI, and ensures properly structured output."""
     log(f"Starting to process and save rewritten articles from {input_json_path}")
     try:
         with open(input_json_path, "r", encoding="utf-8") as json_file:
@@ -122,49 +121,37 @@ def process_and_save_rewritten_articles(input_json_path, output_json_path):
 
         for article_data in articles:
             content = article_data.get("content", "")
+            url = article_data.get("url", "")
             if content:
-                # Split the content into articles based on headings or custom logic
                 articles = re.split(r'(?=\n#\s)', content)
                 for article_content in articles:
                     article_content = article_content.strip()
                     if article_content:
                         rewritten_output = rewrite_articles_with_openai(article_content)
-                        if rewritten_output and rewritten_output != "BLOCKED_CONTENT":
-                            try:
-                                rewritten_dict = json.loads(rewritten_output)
-                                rewritten_articles.append({
-                                    "headline": rewritten_dict.get("headline", ""),
-                                    "content": rewritten_dict.get("content", ""),
-                                    "source": "openai"
-                                })
-                            except json.JSONDecodeError as e:
-                                log(f"JSON parsing error: {e}. Attempting to clean response.")
-                                try:
-                                    cleaned_output = re.search(r'\{.*\}', rewritten_output, re.DOTALL).group(0)
-                                    rewritten_dict = json.loads(cleaned_output)
-                                    rewritten_articles.append({
-                                        "headline": rewritten_dict.get("headline", ""),
-                                        "content": rewritten_dict.get("content", ""),
-                                        "source": "openai"
-                                    })
-                                except Exception as inner_e:
-                                    log(f"Failed to clean and parse response: {inner_e}")
-                                    rewritten_articles.append({
-                                        "content": rewritten_output,
-                                        "source": "openai"
-                                    })
-                        else:
-                            log(f"Skipping article due to rewrite issues: {article_content}")
+                        try:
+                            rewritten_dict = json.loads(rewritten_output)
+                            headline = rewritten_dict.get("headline", "N/A")
+                            content = rewritten_dict.get("content", "N/A")
                             rewritten_articles.append({
-                                "content": article_content,
-                                "source": "original"
+                                "headline": headline,
+                                "content": content,
+                                "source": "openai",
+                                "url": url
+                            })
+                        except json.JSONDecodeError:
+                            log(f"Invalid JSON from OpenAI, using fallback structured data.")
+                            rewritten_articles.append({
+                                "headline": "N/A",
+                                "content": rewritten_output if rewritten_output else "N/A",
+                                "source": "openai",
+                                "url": url
                             })
             else:
-                log(f"Skipping article due to missing content: {article_data}")
+                log(f"Skipping row due to missing content: {article_data}")
 
         with open(output_json_path, "w", encoding="utf-8") as json_file:
             json.dump(rewritten_articles, json_file, indent=4)
-            log(f"Saved rewritten articles to {output_json_path}")
-        log(f"Finished processing all articles from {input_json_path}")
+        log(f"Saved rewritten articles to {output_json_path}")
     except Exception as e:
-        raise ProcessingError(f"Error during article processing: {e}")
+        raise ProcessingError(f"Error during rewriting articles by OpenAI: {e}")
+

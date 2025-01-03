@@ -1,3 +1,4 @@
+# processors/content_cleaner.py
 import os
 import re
 import json
@@ -5,6 +6,7 @@ from utils.logger import log
 from config import CONTENT_MD_DIR, JSON_DIR
 from utils.helpers import sanitize_filename
 from utils.errors import FileProcessingError
+import urllib.parse
 
 
 def clean_markdown_content(markdown_content):
@@ -45,7 +47,11 @@ def process_and_save_cleaned_content(content_md_dir, output_json_path):
                       for article_content in articles:
                           if article_content.strip():
                               cleaned_content = clean_markdown_content(article_content)
-                              output_data.append({"content": cleaned_content})
+                               # Extract URL from filename
+                              url = os.path.splitext(os.path.basename(filename))[0]
+                              parsed_url = urllib.parse.urlparse(url)
+                              url = parsed_url.netloc + parsed_url.path
+                              output_data.append({"content": cleaned_content, "url": url}) #Added url and removed source
                               log(f"Cleaned and stored content from: {filename}")
               except Exception as e:
                   log(f"Error processing {filename}: {e}")
