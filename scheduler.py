@@ -7,7 +7,7 @@ from utils.logger import log
 from uvicorn import Config, Server
 
 # Fixed time for daily execution
-EXECUTION_TIME = "16:11"
+EXECUTION_TIME = "10:42"
 
 def execute_workflow():
     """Executes the workflow."""

@@ -1,3 +1,4 @@
+# processors/markdown_processor.py
 import os
 import re
 import csv
@@ -7,6 +8,7 @@ from utils.helpers import sanitize_filename
 from scrapers.firecrawl_scraper import scrape_data
 from utils.errors import FileProcessingError, FirecrawlError
 import shutil
+import urllib.parse
 
 def save_markdown(markdown_content, base_name):
     """Saves scraped data to a Markdown file."""
@@ -67,13 +69,3 @@ def save_articles_to_md(top_articles_path):
         log(f"Finished saving all the articles to {CONTENT_MD_DIR}")
     except Exception as e:
        raise FileProcessingError(f"Error during saving article to md files: {e}")
-
-def save_markdown(markdown_content, base_name):
-    """Saves scraped data to a Markdown file."""
-    try:
-      file_path = os.path.join(INITIAL_MD_DIR, f"{base_name}.md")
-      with open(file_path, "w", encoding="utf-8") as md_file:
-          md_file.write(markdown_content)
-      log(f"Saved markdown content to {file_path}")
-    except Exception as e:
-        raise FileProcessingError(f"Error during markdown saving: {e}")

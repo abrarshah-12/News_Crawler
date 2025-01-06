@@ -1,22 +1,22 @@
-# processors/pdf_generator.py
 import os
 import re
 import json
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak,  ListFlowable, ListItem
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.colors import blue
-from reportlab.lib.utils import simpleSplit
-from reportlab.lib.styles import StyleSheet1
-from reportlab.lib.colors import black
+from reportlab.lib.colors import blue, black
+from datetime import datetime
 from config import TIMES_NEW_ROMAN_FONT_PATH, PDF_DIR
 from utils.logger import log, log_exception
 from utils.errors import FileProcessingError
+
+# Register the Times New Roman font
+pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
 
 def process_and_save_articles(input_json_path, output_pdf_path):
     """Reads JSON, rewrites articles with Gemini, saves to a PDF file."""
@@ -26,47 +26,52 @@ def process_and_save_articles(input_json_path, output_pdf_path):
             articles = json.load(json_file)
 
         # PDF setup
-        pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
         doc = SimpleDocTemplate(output_pdf_path, pagesize=letter)
         page_width, page_height = letter
         margin = inch
         story = []
 
-        def add_header_and_footer(canvas, doc, page_num):
-            """Adds a footer with the page number."""
-            canvas.saveState()
-            canvas.setFont("Times-Roman", 10)
-            canvas.drawCentredString(doc.width / 2, 0.5 * inch, f"{page_num}")
-            canvas.restoreState()
-
-        def on_page(canvas, doc, page_num):
-            add_header_and_footer(canvas, doc, page_num)
-        
-        # Title page
+        # Title Page Styling
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
             name="TitleStyle",
             fontName="Times-Bold",
-            fontSize=28,
+            fontSize=36,
             alignment=TA_CENTER,
-             spaceAfter = 10
+            textColor=black,
+            spaceAfter=20
         )
         subtitle_style = ParagraphStyle(
             name="SubTitleStyle",
             fontName="Times-Italic",
-            fontSize=16,
+            fontSize=18,
             alignment=TA_CENTER,
-            spaceAfter = 20
+            textColor=blue,
+            spaceAfter=40
         )
+        date_style = ParagraphStyle(
+            name="DateStyle",
+            fontName="Times-Roman",
+            fontSize=14,
+            alignment=TA_CENTER,
+            textColor=black,
+            spaceAfter=30
+        )
+
+        # Title page content
         title = Paragraph("UK Crime Chronicles 2025", title_style)
         subtitle = Paragraph("A Deep Dive into Recent Headlines and Stories", subtitle_style)
+        current_date = Paragraph(datetime.now().strftime("%B %d, %Y"), date_style)
+
+        # Add title page elements
+        story.append(Spacer(1, 2 * inch))  # Add space before title
         story.append(title)
         story.append(subtitle)
-        story.append(Spacer(1, 2 * inch)) # Add space after subtitle
+        story.append(current_date)
+        story.append(Spacer(1, 4 * inch))  # Add space after the date
         story.append(PageBreak())
 
-        # Styles for content
-        styles = getSampleStyleSheet()
+        # Content Styling
         headline_style = ParagraphStyle(
             name="HeadlineStyle",
             fontName="Times-Bold",
@@ -86,49 +91,53 @@ def process_and_save_articles(input_json_path, output_pdf_path):
         link_style = ParagraphStyle(
             name="LinkStyle",
             fontName="Times-Roman",
-             fontSize=10,
+            fontSize=10,
             alignment=TA_JUSTIFY,
-             leading = 12,
-             spaceAfter=12,
+            leading=12,
+            spaceAfter=12,
             textColor=blue,
-            underline = True,
+            underline=True,
+        )
 
-        )
-        normal_style = ParagraphStyle(
-            name="normal",
-            fontName = "Times-Roman",
-            fontSize = 10,
-            textColor=black
-        )
         for article in articles:
-              headline = article.get("headline", "")
-              content = article.get("content", "")
-              source = article.get("source", "original")
-              url = article.get("url", "")
+            headline = article.get("headline", "")
+            content = article.get("content", "")
+            source = article.get("source", "original")
+            url = article.get("url", "")
 
-              if not headline or headline == "N/A":
-                 continue
+            if not headline or headline == "N/A":
+                continue
 
-              # Add headline
-              story.append(Paragraph(headline, headline_style))
+            # Add headline
+            story.append(Paragraph(headline, headline_style))
 
-              # Split the content into paragraphs by looking for newlines
-              paragraphs = content.split('\n\n') # two newlines
-              for paragraph in paragraphs:
-                  paragraph = paragraph.strip()
-                  if paragraph:
-                      content_para = Paragraph(paragraph, content_style)
-                      story.append(content_para)
+            # Add content paragraphs
+            paragraphs = content.split('\n\n')  # Split content into paragraphs
+            for paragraph in paragraphs:
+                paragraph = paragraph.strip()
+                if paragraph:
+                    story.append(Paragraph(paragraph, content_style))
 
-              # Add the link to the source
-              if source != "original" and url:
-                  source_link = f"<a href='http://{url}'>Source</a>"
-                  source_link_para = Paragraph(f"{source_link}", link_style)
-                  story.append(source_link_para)
-              story.append(Spacer(1, 0.5 * inch))
+            # Add source link
+            if source != "original" and url:
+                url = url.replace("http://http", "http")  # Fix extra http issue
+                source_link = f"<a href='{url}'>Source</a>"
+                story.append(Paragraph(source_link, link_style))
+            story.append(Spacer(1, 0.5 * inch))
 
-        doc.build(story, onFirstPage=lambda canvas, doc: on_page(canvas, doc, 1),
-                 onLaterPages=lambda canvas, doc: on_page(canvas, doc, doc.page))
+        # Build PDF with header and footer
+        def add_header_and_footer(canvas, doc, page_num):
+            """Adds a footer with the page number."""
+            canvas.saveState()
+            canvas.setFont("Times-Roman", 10)
+            canvas.drawCentredString(doc.width / 2, 0.5 * inch, f"Page {page_num}")
+            canvas.restoreState()
+
+        doc.build(
+            story,
+            onFirstPage=lambda canvas, doc: add_header_and_footer(canvas, doc, 1),
+            onLaterPages=lambda canvas, doc: add_header_and_footer(canvas, doc, doc.page)
+        )
 
         log(f"PDF saved to {output_pdf_path}")
         log(f"Finished processing all articles from {input_json_path}")
