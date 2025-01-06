@@ -99,7 +99,7 @@ Here's a step-by-step overview of how data flows through the application:
 4.  **Set up a database:** Create a database in postgresql with a name as given in your `.env` file, and create a user that has access to create tables in the schema.
 5. **Add fonts directory:** Create a folder named `fonts` and add the `timr45w.ttf` file in this folder.
 6.  **Run the Application:**
-     Run `python run_all.py` in the root directory.
+     Run `python scheduler.py` in the root directory.
 7. **Access the webpage**: Now you will be able to access your webpage from a browser at `http://127.0.0.1:8000`, and you can subscribe using your email.
 
 ## Output Files

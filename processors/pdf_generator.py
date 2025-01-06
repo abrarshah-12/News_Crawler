@@ -6,7 +6,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY  # Retained both import orders
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.colors import blue, black
@@ -22,19 +22,13 @@ def process_and_save_articles(input_json_path, output_pdf_path):
     """Reads JSON, rewrites articles with Gemini, saves to a PDF file."""
     log(f"Starting to process and save rewritten articles from {input_json_path} to {output_pdf_path}")
     try:
-        # Load articles from JSON file
         with open(input_json_path, "r", encoding="utf-8") as json_file:
             articles = json.load(json_file)
 
         # PDF setup
-        doc = SimpleDocTemplate(
-            output_pdf_path,
-            pagesize=letter,
-            leftMargin=inch,
-            rightMargin=inch,
-            topMargin=inch,
-            bottomMargin=inch
-        )
+        doc = SimpleDocTemplate(output_pdf_path, pagesize=letter)
+        page_width, page_height = letter
+        margin = inch
         story = []
 
         # Title Page Styling
@@ -48,7 +42,7 @@ def process_and_save_articles(input_json_path, output_pdf_path):
             spaceAfter=20
         )
         subtitle_style = ParagraphStyle(
-            name="SubtitleStyle",
+            name="SubTitleStyle",
             fontName="Times-Italic",
             fontSize=18,
             alignment=TA_CENTER,
@@ -105,12 +99,12 @@ def process_and_save_articles(input_json_path, output_pdf_path):
             underline=True,
         )
 
-        # Add articles
         for article in articles:
             headline = article.get("headline", "")
             content = article.get("content", "")
             source = article.get("source", "original")
             url = article.get("url", "")
+
             if not headline or headline == "N/A":
                 continue
 
@@ -126,8 +120,8 @@ def process_and_save_articles(input_json_path, output_pdf_path):
 
             # Add source link
             if source != "original" and url:
-                url = url.replace("http://http", "http")  # Fix extra http issue
-                source_link = f"<a href='{url}'>Source</a>"
+                safe_url = url.replace("'", "&apos;")
+                source_link = f"<a href='{safe_url}'>Source</a>"
                 story.append(Paragraph(source_link, link_style))
             story.append(Spacer(1, 0.5 * inch))
 
