@@ -80,33 +80,32 @@ Return the output as a JSON object strictly formatted as:
 Do not include any additional text or formatting outside this structure.
 """
 
-
     while retries < 5:
         try:
-             response = MODEL.generate_content(prompt)
-             if response.text:
+            response = MODEL.generate_content(prompt)
+            if response.text:
                 rewritten_text = response.text.strip()
                 log(f"Raw response from Gemini: {rewritten_text}")
                 end_time = time.time()
                 time_taken = end_time - start_time
                 log(f"Gemini API returned text. Time taken: {time_taken:.2f}s. Retries: {retries}")
                 break  # Exit the retry loop if successful
-             else:
+            else:
                 log(f"Gemini API returned no text. Retries: {retries}")
                 break
         except Exception as e:
-             log(f"Error with Gemini API: {e}. Retries: {retries}")
-             if '429' in str(e) or "rate limit" in str(e):
+            log(f"Error with Gemini API: {e}. Retries: {retries}")
+            if '429' in str(e) or "rate limit" in str(e):
                 log(f"Rate limit hit. Retrying in {delay} seconds...")
                 time.sleep(delay)
                 delay = min(delay * 2, max_delay)  # exponential backoff
                 retries += 1
-             elif "This model's maximum context length is" in str(e).lower():
+            elif "This model's maximum context length is" in str(e).lower():
                 log(f"Gemini context length exceeded, skipping this article. {e}")
                 return "BLOCKED_CONTENT"
-             else:
-                 log(f"Unexpected Gemini API error, not retrying. {e}")
-                 break
+            else:
+                log(f"Unexpected Gemini API error, not retrying. {e}")
+                break
         finally:
             # Add random delay to prevent rate limiting
             time.sleep(random.uniform(0.5, 1.5))
@@ -129,18 +128,18 @@ def process_and_save_rewritten_articles(input_json_path, output_json_path):
                 for article_content in articles:
                     article_content = article_content.strip()
                     if article_content:
-                         rewritten_output = rewrite_articles_with_gemini(article_content)
-                         if rewritten_output and rewritten_output != "BLOCKED_CONTENT":
-                             try:
-                                 rewritten_dict = json.loads(rewritten_output)
-                                 rewritten_articles.append({
-                                     "headline": rewritten_dict.get("headline", ""),
-                                     "content": rewritten_dict.get("content", ""),
-                                     "source": "gemini"
-                                 })
-                             except json.JSONDecodeError as e:
-                                 log(f"JSON parsing error: {e}. Attempting to clean response.")
-                                 try:
+                        rewritten_output = rewrite_articles_with_gemini(article_content)
+                        if rewritten_output and rewritten_output != "BLOCKED_CONTENT":
+                            try:
+                                rewritten_dict = json.loads(rewritten_output)
+                                rewritten_articles.append({
+                                    "headline": rewritten_dict.get("headline", ""),
+                                    "content": rewritten_dict.get("content", ""),
+                                    "source": "gemini"
+                                })
+                            except json.JSONDecodeError as e:
+                                log(f"JSON parsing error: {e}. Attempting to clean response.")
+                                try:
                                     cleaned_output = re.search(r'\{.*\}', rewritten_output, re.DOTALL).group(0)
                                     rewritten_dict = json.loads(cleaned_output)
                                     rewritten_articles.append({
@@ -148,18 +147,18 @@ def process_and_save_rewritten_articles(input_json_path, output_json_path):
                                         "content": rewritten_dict.get("content", ""),
                                         "source": "gemini"
                                     })
-                                 except Exception as inner_e:
-                                      log(f"Failed to clean and parse response: {inner_e}")
-                                      rewritten_articles.append({
-                                          "content": rewritten_output,
-                                         "source": "gemini"
-                                     })
-                         else:
-                             log(f"Skipping article due to rewrite issues: {article_content}")
-                             rewritten_articles.append({
-                                 "content": article_content,
-                                  "source": "original"
-                             })
+                                except Exception as inner_e:
+                                    log(f"Failed to clean and parse response: {inner_e}")
+                                    rewritten_articles.append({
+                                        "content": rewritten_output,
+                                        "source": "gemini"
+                                    })
+                        else:
+                            log(f"Skipping article due to rewrite issues: {article_content}")
+                            rewritten_articles.append({
+                                "content": article_content,
+                                "source": "original"
+                            })
             else:
                 log(f"Skipping article due to missing content: {article_data}")
 
