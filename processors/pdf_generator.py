@@ -1,16 +1,22 @@
 import os
+import re
 import json
+from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY  # Retained both import orders
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.lib.colors import blue, black
+from datetime import datetime
 from config import TIMES_NEW_ROMAN_FONT_PATH, PDF_DIR
 from utils.logger import log, log_exception
 from utils.errors import FileProcessingError
 
+# Register the Times New Roman font
+pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
 
 def process_and_save_articles(input_json_path, output_pdf_path):
     """Reads JSON, rewrites articles with Gemini, saves to a PDF file."""
@@ -20,29 +26,58 @@ def process_and_save_articles(input_json_path, output_pdf_path):
         with open(input_json_path, "r", encoding="utf-8") as json_file:
             articles = json.load(json_file)
 
-        # Register the font
-        pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
-
-        # Setup the PDF document
-        doc = SimpleDocTemplate(output_pdf_path, pagesize=letter, leftMargin=inch, rightMargin=inch, topMargin=inch, bottomMargin=inch)
+        # PDF setup
+        doc = SimpleDocTemplate(
+            output_pdf_path,
+            pagesize=letter,
+            leftMargin=inch,
+            rightMargin=inch,
+            topMargin=inch,
+            bottomMargin=inch
+        )
         story = []
 
-        # Styles for the content
+        # Title Page Styling
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
             name="TitleStyle",
-            fontName="Times-Roman",
-            fontSize=28,
+            fontName="Times-Bold",
+            fontSize=36,
             alignment=TA_CENTER,
+            textColor=black,
             spaceAfter=20
         )
         subtitle_style = ParagraphStyle(
             name="SubtitleStyle",
             fontName="Times-Italic",
-            fontSize=16,
+            fontSize=18,
             alignment=TA_CENTER,
+            textColor=blue,
             spaceAfter=40
         )
+        date_style = ParagraphStyle(
+            name="DateStyle",
+            fontName="Times-Roman",
+            fontSize=14,
+            alignment=TA_CENTER,
+            textColor=black,
+            spaceAfter=30
+        )
+
+        # Title page content
+        title = Paragraph("UK Crime Chronicles 2025", title_style)
+        subtitle = Paragraph("A Deep Dive into Recent Headlines and Stories", subtitle_style)
+        current_date = Paragraph(datetime.now().strftime("%B %d, %Y"), date_style)
+
+        # Add title page elements
+        story.append(Spacer(1, 2 * inch))  # Add space before title
+        story.append(title)
+        story.append(subtitle)
+        story.append(current_date)
+        story.append(Spacer(1, 4 * inch))  # Add space after the date
+        story.append(PageBreak())
+
+        # Content Styling
         headline_style = ParagraphStyle(
             name="HeadlineStyle",
             fontName="Times-Bold",
@@ -59,43 +94,56 @@ def process_and_save_articles(input_json_path, output_pdf_path):
             leading=14,
             spaceAfter=20
         )
-
-        # Title Page
-        title = Paragraph("UK Crime Chronicles", title_style)
-        subtitle = Paragraph("A Deep Dive into Recent Headlines and Stories", subtitle_style)
-        story.append(title)
-        story.append(subtitle)
-        story.append(PageBreak())
+        link_style = ParagraphStyle(
+            name="LinkStyle",
+            fontName="Times-Roman",
+            fontSize=10,
+            alignment=TA_JUSTIFY,
+            leading=12,
+            spaceAfter=12,
+            textColor=blue,
+            underline=True,
+        )
 
         # Add articles
         for article in articles:
             headline = article.get("headline", "")
             content = article.get("content", "")
-
-            # Skip articles with missing or invalid headlines
+            source = article.get("source", "original")
+            url = article.get("url", "")
             if not headline or headline == "N/A":
                 continue
 
-            # Add headline and content
+            # Add headline
             story.append(Paragraph(headline, headline_style))
-            paragraphs = content.split('\n')
+
+            # Add content paragraphs
+            paragraphs = content.split('\n\n')  # Split content into paragraphs
             for paragraph in paragraphs:
                 paragraph = paragraph.strip()
                 if paragraph:
                     story.append(Paragraph(paragraph, content_style))
 
-            story.append(Spacer(1, 0.5 * inch))  # Space between articles
+            # Add source link
+            if source != "original" and url:
+                url = url.replace("http://http", "http")  # Fix extra http issue
+                source_link = f"<a href='{url}'>Source</a>"
+                story.append(Paragraph(source_link, link_style))
+            story.append(Spacer(1, 0.5 * inch))
 
-        # Function to add page numbers at the bottom center
-        def add_page_number(canvas, doc):
+        # Build PDF with header and footer
+        def add_header_and_footer(canvas, doc, page_num):
+            """Adds a footer with the page number."""
             canvas.saveState()
             canvas.setFont("Times-Roman", 10)
-            page_number_text = f"Page {doc.page}"
-            canvas.drawCentredString(letter[0] / 2, 0.5 * inch, page_number_text)
+            canvas.drawCentredString(doc.width / 2, 0.5 * inch, f"Page {page_num}")
             canvas.restoreState()
 
-        # Build the PDF with page numbering
-        doc.build(story, onFirstPage=add_page_number, onLaterPages=add_page_number)
+        doc.build(
+            story,
+            onFirstPage=lambda canvas, doc: add_header_and_footer(canvas, doc, 1),
+            onLaterPages=lambda canvas, doc: add_header_and_footer(canvas, doc, doc.page)
+        )
 
         log(f"PDF saved to {output_pdf_path}")
         log(f"Finished processing all articles from {input_json_path}")

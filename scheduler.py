@@ -6,8 +6,8 @@ from web_app import app
 from utils.logger import log
 from uvicorn import Config, Server
 
-# Fixed time for daily execution
-EXECUTION_TIME = "14:14"
+# Fixed times for daily execution
+EXECUTION_TIMES = ["14:14", "10:42"]  # Retained both times
 
 def execute_workflow():
     """Executes the workflow."""
@@ -29,8 +29,9 @@ def start_web_app():
 
 def schedule_task():
     """Schedules the daily workflow execution."""
-    log(f"Scheduling the workflow to run daily at {EXECUTION_TIME}.")
-    schedule.every().day.at(EXECUTION_TIME).do(execute_workflow)
+    for execution_time in EXECUTION_TIMES:
+        log(f"Scheduling the workflow to run daily at {execution_time}.")
+        schedule.every().day.at(execution_time).do(execute_workflow)
     
     while True:
         schedule.run_pending()
