@@ -6,12 +6,13 @@ from pydantic import BaseModel
 import psycopg2
 from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 from utils.logger import log
+from utils.errors import FileProcessingError
 
 app = FastAPI()
 
 # Configure templates and static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="../static"), name="static")
+templates = Jinja2Templates(directory="../templates")
 
 
 # Database connection function
@@ -34,23 +35,23 @@ def create_subscribers_table():
     """Creates the subscribers table if it doesn't exist."""
     conn = None
     try:
-        conn = get_db_connection()
-        with conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS subscribers (
-                    id SERIAL PRIMARY KEY,
-                    email VARCHAR(255) UNIQUE NOT NULL
-                );
-            """)
-            conn.commit()
-            log("Table subscribers has been created")
+      conn = get_db_connection()
+      with conn.cursor() as cur:
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS subscribers (
+                id SERIAL PRIMARY KEY,
+                email VARCHAR(255) UNIQUE NOT NULL
+            );
+        """)
+        conn.commit()
+        log("Table subscribers has been created")
 
     except Exception as e:
-        log(f"Error creating subscriber table: {e}")
-        raise
+      log(f"Error creating subscriber table: {e}")
+      raise FileProcessingError(f"Error creating subscriber table: {e}")
     finally:
-        if conn:
-            conn.close()
+      if conn:
+        conn.close()
 
 
 create_subscribers_table()
@@ -87,8 +88,3 @@ async def subscribe(request: Request, email: str = Form(...)):
     finally:
       if conn:
         conn.close()
-
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="127.0.0.1", port=8000)
