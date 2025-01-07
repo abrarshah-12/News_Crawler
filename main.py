@@ -99,7 +99,7 @@ def main():
 
         # Step 9: Generate PDF
         input_json_path = os.path.join(JSON_DIR, "rewritten_articles.json")
-        output_pdf_path = os.path.join(PDF_DIR, "clean_rewritten.pdf")
+        output_pdf_path = os.path.join(PDF_DIR, "Daily Report.pdf")
         try:
            process_and_save_articles(input_json_path, output_pdf_path)
         except FileProcessingError as e:

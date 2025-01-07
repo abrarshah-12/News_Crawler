@@ -43,7 +43,6 @@ The project is structured into several modules:
 *   `requirements.txt`: Lists all the Python libraries used in this project.
 *   `.env`: Stores all of the configurations of the application such as api keys, and email, and database credentials. This should be gitignored
 *   `fonts/`: Stores the font which will be used for rendering the pdf.
-*   `vercel.json`: Contains the configuration for deploying the web app on Vercel
 
 ## Data Flow
 
@@ -66,7 +65,7 @@ Here's a step-by-step overview of how data flows through the application:
     *   If OpenAI fails, then the `gemini_rewriter.py` is used to rewrite articles and creates a `rewritten_articles.json` file in `output/json` with a source `gemini` and also preserves the url from previous step.
     *   If there is any problem during both rewritting process the original content will be saved with source as original with the url from the previous stage.
 6.  **PDF Generation (`main.py`, `processors/pdf_generator.py`):**
-    *   `main.py` uses `pdf_generator.py` to read the `rewritten_articles.json`, which is then formatted into a PDF document. The resulting PDF is saved in the `output/pdfs` folder as `clean_rewritten.pdf`.
+    *   `main.py` uses `pdf_generator.py` to read the `rewritten_articles.json`, which is then formatted into a PDF document. The resulting PDF is saved in the `output/pdfs` folder as `Daily Report.pdf`.
     *   The first page of the PDF will have the title and subtitle, while the following pages will contain the rewritten articles, grouped by headline, and a link to the original source using the `url`.
 7.  **Email Delivery (`main.py`, `services.py`)**
      *   `main.py` now uses `services.py` to fetch the subscribers' emails from the database and then it will use `services.py` to send the PDF report to each of the subscribers.
@@ -75,8 +74,8 @@ Here's a step-by-step overview of how data flows through the application:
 
 1.  **Clone Repository:**
     ```bash
-    git clone [repository URL]
-    cd [project directory]
+    git clone https://github.com/abrarshah-12/News_Crawler.git
+    cd News_Crawler
     ```
 2.  **Install Dependencies:**
     ```bash
@@ -95,13 +94,12 @@ Here's a step-by-step overview of how data flows through the application:
     EMAIL_FROM="your_email_address"
     DB_URL="your_database_connection_string"
     ```
-    Replace the values with your actual values. Note that we are only using `DB_URL`, so you only need to have that if you are using the Azure database.
+    Replace the values with your actual values.
 4.  **Set up a database:** Create a database in postgresql with a name as given in your `.env` file, and create a user that has access to create tables in the schema.
 5. **Add fonts directory:** Create a folder named `fonts` and add the `timr45w.ttf` file in this folder.
 
 **Running the Application:**
-    *   For local development: Run `python scheduler.py`, and then open a separate terminal and run `python main.py`.
-    *   For Deployment: Deploy `api` to Vercel and other code to your chosen method.
+    *   For local development: Run `api/main.py` for running the web app, and then open a separate terminal and run `python main.py` for running the pdf generation and email sending process.
 
 ## Output Files
 
@@ -111,7 +109,7 @@ After running the project, you will see the following directories and files in t
 *   `output/csv`: This directory will contain CSV files named `all_articles.csv`, `cleaned_articles.csv`, and `top_articles.csv`.
 *   `output/content_md_files`: This directory will contain the articles scraped from links present in `top_articles.csv` and will be named using their respective URLs.
 *   `output/json`: This directory will contain JSON files named `cleaned_articles.json` and `rewritten_articles.json`.
-*   `output/pdfs`: This directory will contain a PDF file named `clean_rewritten.pdf` containing the formatted articles.
+*   `output/pdfs`: This directory will contain a PDF file named `Daily Report.pdf` containing the formatted articles.
 *  `output/logs.txt`: This file will contain the execution logs.
 
 ## Error Handling
