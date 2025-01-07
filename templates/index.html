@@ -1,17 +1,22 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Subscribe to Crime News</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Subscribe for Daily Crime News</h1>
-        <p>Enter your email to receive a PDF report every morning.</p>
-        <form action="/subscribe" method="post">
-            <input type="email" name="email" required placeholder="Your email address" class="input-field">
-            <button type="submit" class="submit-button">Subscribe</button>
-        </form>
+    <div class="background-overlay">
+        <div class="container">
+            <h1>Subscribe for Daily Crime News</h1>
+            <p>Enter your email to receive a PDF report every morning.</p>
+            <form action="/subscribe" method="post">
+                <input type="text" name="name" required placeholder="Your name" class="input-field">
+                <input type="email" name="email" required placeholder="Your email address" class="input-field">
+                <button type="submit" class="submit-button">Subscribe</button>
+            </form>
+        </div>
     </div>
 </body>
 </html>

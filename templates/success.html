@@ -1,13 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Subscription Success</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-    <div class="container">
-        <h1>Subscription Successful</h1>
-        <p>Thank you for subscribing, you will now receive a daily crime report to the email:  <b> {{ email }} </b></p>
+    <div class="background-overlay">
+        <div class="container">
+            <h1>Thank you for subscribing!</h1>
+            <p>Dear <b>{{ name }}</b>, we have successfully added <b>{{ email }}</b> to our subscription list.</p>
+        </div>
     </div>
 </body>
 </html>

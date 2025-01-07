@@ -48,7 +48,7 @@ def main():
           try:
             save_all_articles_to_csv(all_articles, base_name)
           except FileProcessingError as e:
-            log_exception(e, f"Error saving all articles to CSV")
+            log_exception(e, "Error saving all articles to CSV")
 
         else:
             log("No articles were found during the scraping.")

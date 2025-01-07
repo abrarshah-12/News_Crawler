@@ -7,10 +7,9 @@ import psycopg2
 from config import  EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASSWORD, EMAIL_FROM, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
 from utils.logger import log, log_exception
 import datetime
-import re
 
 def load_subscribers():
-    """Loads subscribers from the database."""
+    """Loads subscribers and their names from the database."""
     conn = None
     subscribers = []
     try:
@@ -22,12 +21,12 @@ def load_subscribers():
             password=DB_PASSWORD
         )
         with conn.cursor() as cur:
-            cur.execute("SELECT email FROM subscribers")
-            subscriber_emails = cur.fetchall()
-            subscribers = [email[0] for email in subscriber_emails]
+            cur.execute("SELECT name, email FROM subscribers")
+            subscriber_data = cur.fetchall()
+            subscribers = [{"name": row[0], "email": row[1]} for row in subscriber_data]
     except Exception as e:
-         log_exception(e, "Error fetching subscribers from the database.")
-         subscribers=[]
+        log_exception(e, "Error fetching subscribers from the database.")
+        subscribers = []
     finally:
         if conn:
             conn.close()
@@ -35,51 +34,74 @@ def load_subscribers():
 
 
 def send_email(pdf_path, subscribers):
-    """Sends the generated PDF to subscribers."""
+    """Sends the generated PDF to subscribers with a personalized email."""
     if not subscribers:
-        log("No subscribers, Email sending will be skipped", level=40)
+        log("No subscribers, email sending will be skipped", level=40)
         return
 
     try:
-      for subscriber in subscribers:
-        msg = MIMEMultipart()
-        msg["From"] = EMAIL_FROM
-        msg["To"] = subscriber
-        msg["Subject"] = "Daily Crime News Report"
+        for subscriber in subscribers:
+            name = subscriber["name"]
+            email = subscriber["email"]
 
-        # Extract username from email
-        username = subscriber.split("@")[0]
-         # Generate personalized HTML content
-        html_body = f"""
+            msg = MIMEMultipart()
+            msg["From"] = EMAIL_FROM
+            msg["To"] = email
+            msg["Subject"] = f"Daily News Report - {datetime.datetime.now().strftime('%B %d, %Y')}"
+
+            # Generate personalized HTML content
+            html_body = f"""
                 <html>
                 <head>
                 <style>
-                    body {{font-family: Arial, sans-serif; color: #333; line-height: 1.6;}}
-                    h1 {{color: #0056b3;}}
+                    body {{font-family: Arial, sans-serif; color: #333; line-height: 1.8;}}
+                    h1 {{color: #0056b3; margin-bottom: 10px;}}
                     p {{margin-bottom: 15px;}}
                     .footer {{margin-top: 20px; font-size: 0.8em; color: #777;}}
+                    .highlight {{color: #d9534f; font-weight: bold;}}
+                    .cta-button {{
+                        display: inline-block;
+                        margin-top: 20px;
+                        padding: 10px 20px;
+                        color: white;
+                        background-color: #28a745;
+                        text-decoration: none;
+                        border-radius: 5px;
+                        font-weight: bold;
+                    }}
+                    .cta-button:hover {{background-color: #218838;}}
                 </style>
                 </head>
-                 <body>
-                    <h1>Hello, {username}!</h1>
-                    <p>Here is your daily crime news report for {datetime.datetime.now().strftime("%B %d, %Y")}.</p>
+                <body>
+                    <h1>Dear {name},</h1>
+                    <p>I hope this message finds you well.</p>
+                    <p>Please find attached your <span class="highlight">Daily News Report</span> for {datetime.datetime.now().strftime('%B %d, %Y')}. 
+                    This report contains all the important updates and headlines for your review.</p>
+                    <p>Thank you for staying informed. Your dedication to staying updated inspires us to do our best every day.</p>
+                    <a href="https://example.com/unsubscribe" class="cta-button">Unsubscribe</a>
                     <div class="footer">
-                    <p>This email was sent to you as a subscriber of Daily Crime News Report.</p>
+                        <p>Daily News Report Team</p>
+                        <p>This email was sent to you as a subscriber of Daily News Report.</p>
                     </div>
-                 </body>
+                </body>
                 </html>
             """
 
-        msg.attach(MIMEText(html_body, "html"))
+            msg.attach(MIMEText(html_body, "html"))
 
-        with open(pdf_path, "rb") as f:
-            pdf_attachment = MIMEApplication(f.read(), _subtype="pdf")
-            pdf_attachment.add_header('Content-Disposition', 'attachment', filename=os.path.basename(pdf_path))
-            msg.attach(pdf_attachment)
-        with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
-            server.starttls()
-            server.login(EMAIL_USER, EMAIL_PASSWORD)
-            server.send_message(msg)
-            log(f"Email sent successfully to {subscriber}")
+            with open(pdf_path, "rb") as f:
+                pdf_attachment = MIMEApplication(f.read(), _subtype="pdf")
+                pdf_attachment.add_header(
+                    'Content-Disposition',
+                    'attachment',
+                    filename=os.path.basename(pdf_path)
+                )
+                msg.attach(pdf_attachment)
+
+            with smtplib.SMTP(EMAIL_HOST, EMAIL_PORT) as server:
+                server.starttls()
+                server.login(EMAIL_USER, EMAIL_PASSWORD)
+                server.send_message(msg)
+                log(f"Email sent successfully to {email}")
     except Exception as e:
         log_exception(e, "Error sending email")
