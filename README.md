@@ -1,6 +1,6 @@
 # UK Crime News Aggregator and Rewriter
 
-This project is a Python-based system designed to scrape, process, and reformat news articles related to crime in the UK, ultimately generating a well-formatted PDF document. It utilizes web scraping, natural language processing via LLMs (OpenAI and Gemini), and PDF generation libraries. It also includes a subscription functionality where users can provide their email and get the news report.
+This project is a Python-based system designed to scrape, process, and reformat news articles related to crime in the UK, ultimately generating a well-formatted PDF document and emailing it to subscribers. It utilizes web scraping, natural language processing via LLMs (OpenAI and Gemini), and PDF generation libraries. It also includes a subscription functionality where users can provide their email and get the daily report.
 
 ## Project Overview
 
@@ -9,16 +9,18 @@ The primary goal of this project is to automate the process of gathering crime-r
 1.  **Web Scraping:** Extracts relevant article links and content from specified websites.
 2.  **Content Cleaning:** Cleans the raw text by removing irrelevant information, links, and formatting.
 3.  **Content Rewriting:** Uses large language models (LLMs) to rewrite the articles in a specific style.
-4.  **PDF Generation:** Generates a formatted PDF document containing the rewritten articles, complete with a title page and page numbers.
-5. **Subscription:** Provides a web interface where users can provide their emails to receive a daily report.
+4.  **PDF Generation:** Generates a formatted PDF document containing the rewritten articles, complete with a title page, paragraphs and page numbers.
+5.  **Subscription:** Provides a web interface where users can provide their emails to receive a daily report.
+6. **Email Delivery:** Uses python `smtplib` to deliver personalized emails to the subscribers.
 
 ## Project Structure
 
 The project is structured into several modules:
 
-*   `main.py`: The entry point of the application, which orchestrates the entire process, and sends the emails to the subscribers.
-*   `config.py`: Configuration file that contains file paths, API keys, source urls, database connection and email settings.
-*   `web_app.py`: FastAPI app for handling user subscriptions.
+*   `api/`:
+    *   `main.py`: FastAPI app for handling user subscriptions (to be deployed on Vercel).
+*   `main.py`: The core logic of the application that scrapes, cleans, rewrites, generates PDF, and sends emails to subscribers. This code will be deployed separately in cloud functions or any other scheduling service.
+*   `config.py`: Configuration file that contains file paths, API keys, source URLs, database connection, and email settings.
 *   `utils/`:
     *   `logger.py`: Handles logging to the console and a log file.
     *   `errors.py`: Defines custom exceptions used in the project.
@@ -29,18 +31,19 @@ The project is structured into several modules:
     *   `csv_processor.py`: Processes and cleans CSV files.
     *   `markdown_processor.py`: Handles markdown files, like saving and extracting content.
     *   `content_cleaner.py`: Cleans and formats article content.
-    *    `openai_rewriter.py`:  Rewrites articles using OpenAI LLM.
     *   `gemini_rewriter.py`: Rewrites articles using Google's Gemini LLM.
-    *   `pdf_generator.py`: Generates PDF document from processed articles.
+    *  `openai_rewriter.py`: Rewrites articles using OpenAI LLM.
+    *   `pdf_generator.py`: Generates the PDF document from processed articles.
 *   `templates/`:
     *   `index.html`: HTML page for the subscription form.
-    *    `success.html`:  HTML page displayed on successfull subscription.
-    *    `already_subscribed.html`:  HTML page displayed when the user is already subscribed.
-* `static/`:
+    *   `success.html`: HTML page displayed on successful subscription.
+    *   `already_subscribed.html`: HTML page displayed when a user tries to subscribe when they already have an account.
+*   `static/`:
     *   `styles.css`: CSS stylesheet to style the webpages.
 *   `requirements.txt`: Lists all the Python libraries used in this project.
-*   `.env`: stores all of the configurations of the application such as api keys, and email, and database credentials.
-*   `fonts/`: Stores fonts that are used for the pdf generation.
+*   `.env`: Stores all of the configurations of the application such as api keys, and email, and database credentials. This should be gitignored
+*   `fonts/`: Stores the font which will be used for rendering the pdf.
+*   `vercel.json`: Contains the configuration for deploying the web app on Vercel
 
 ## Data Flow
 
@@ -55,24 +58,25 @@ Here's a step-by-step overview of how data flows through the application:
     *   `main.py` uses `csv_processor.py` to clean the `all_articles.csv` file by removing irrelevant rows and saving as `cleaned_articles.csv` in `output/csv`.
     *   Then it selects top 5 articles from each source from the cleaned file to `top_articles.csv` in `output/csv`.
 3.  **Content Scraping and MD Saving (`main.py`, `processors/markdown_processor.py`):**
-    *   `main.py` uses `markdown_processor.py` to scrape the content from the top articles extracted in the previous step using firecrawl, which saves these articles as Markdown files in the `output/content_md_files` directory, these articles contain the full text and all other elements of the article.
+    *   `main.py` uses `markdown_processor.py` to scrape the content from the top articles extracted in the previous step using firecrawl, which saves these articles as Markdown files in the `output/content_md_files` directory, these articles contain the full text and all other elements of the article and are named according to the url of the article.
 4.  **Content Cleaning (`main.py`, `processors/content_cleaner.py`):**
-    *   `main.py` uses `content_cleaner.py` to process the Markdown files from `output/content_md_files`, remove unnecessary elements, and stores the cleaned articles into a JSON file named `cleaned_articles.json` in the `output/json` directory.
+    *   `main.py` uses `content_cleaner.py` to process the Markdown files from `output/content_md_files`, remove unnecessary elements, and stores the cleaned articles into a JSON file named `cleaned_articles.json` in the `output/json` directory. It also stores full urls in this file for later use.
 5.  **Content Rewriting (`main.py`, `processors/openai_rewriter.py` and `processors/gemini_rewriter.py`):**
-    *   `main.py` first attempts to use `openai_rewriter.py` to rewrite the content of the articles in `cleaned_articles.json` using OpenAI, it creates `rewritten_articles.json` in the `output/json` folder if successful with a source `openai`.
-    *   If OpenAI fails, then the `gemini_rewriter.py` is used to rewrite articles and creates a `rewritten_articles.json` file in `output/json` with a source `gemini`.
-    * If there is any problem during both rewritting process the original content will be saved with source as `original`.
+    *   `main.py` first attempts to use `openai_rewriter.py` to rewrite the content of the articles in `cleaned_articles.json` using OpenAI, it creates `rewritten_articles.json` in the `output/json` folder if successful with a source `openai`, and also preserves the url from previous step.
+    *   If OpenAI fails, then the `gemini_rewriter.py` is used to rewrite articles and creates a `rewritten_articles.json` file in `output/json` with a source `gemini` and also preserves the url from previous step.
+    *   If there is any problem during both rewritting process the original content will be saved with source as original with the url from the previous stage.
 6.  **PDF Generation (`main.py`, `processors/pdf_generator.py`):**
     *   `main.py` uses `pdf_generator.py` to read the `rewritten_articles.json`, which is then formatted into a PDF document. The resulting PDF is saved in the `output/pdfs` folder as `clean_rewritten.pdf`.
-    *   The first page of the PDF will have the title and subtitle, while the following pages will contain the rewritten articles, grouped by headline, with page numbers.
-7. **Email Delivery:** `main.py` will use the extracted emails from the database, and send the PDF document using email.
+    *   The first page of the PDF will have the title and subtitle, while the following pages will contain the rewritten articles, grouped by headline, and a link to the original source using the `url`.
+7.  **Email Delivery (`main.py`, `services.py`)**
+     *   `main.py` now uses `services.py` to fetch the subscribers' emails from the database and then it will use `services.py` to send the PDF report to each of the subscribers.
 
 ## Setting up the Project
 
 1.  **Clone Repository:**
     ```bash
-    git clone https://github.com/Imobisoftltd/NewsCrawler.git
-    cd NewsCrawler
+    git clone [repository URL]
+    cd [project directory]
     ```
 2.  **Install Dependencies:**
     ```bash
@@ -89,18 +93,15 @@ Here's a step-by-step overview of how data flows through the application:
     EMAIL_USER="your_email_address"
     EMAIL_PASSWORD="your_email_password"
     EMAIL_FROM="your_email_address"
-    DB_HOST="localhost"
-    DB_PORT=5432
-    DB_NAME="news_subscriber_db"
-    DB_USER="news_user"
-    DB_PASSWORD="your_database_password"
+    DB_URL="your_database_connection_string"
     ```
-    Replace the values with your actual values.
+    Replace the values with your actual values. Note that we are only using `DB_URL`, so you only need to have that if you are using the Azure database.
 4.  **Set up a database:** Create a database in postgresql with a name as given in your `.env` file, and create a user that has access to create tables in the schema.
 5. **Add fonts directory:** Create a folder named `fonts` and add the `timr45w.ttf` file in this folder.
-6.  **Run the Application:**
-     Run `python scheduler.py` in the root directory.
-7. **Access the webpage**: Now you will be able to access your webpage from a browser at `http://127.0.0.1:8000`, and you can subscribe using your email.
+
+**Running the Application:**
+    *   For local development: Run `python scheduler.py`, and then open a separate terminal and run `python main.py`.
+    *   For Deployment: Deploy `api` to Vercel and other code to your chosen method.
 
 ## Output Files
 
@@ -108,10 +109,10 @@ After running the project, you will see the following directories and files in t
 
 *   `output/initial_md_files`: This directory will contain the scraped markdown files
 *   `output/csv`: This directory will contain CSV files named `all_articles.csv`, `cleaned_articles.csv`, and `top_articles.csv`.
-*  `output/content_md_files`: This directory will contain the articles scraped from links present in `top_articles.csv`.
+*   `output/content_md_files`: This directory will contain the articles scraped from links present in `top_articles.csv` and will be named using their respective URLs.
 *   `output/json`: This directory will contain JSON files named `cleaned_articles.json` and `rewritten_articles.json`.
 *   `output/pdfs`: This directory will contain a PDF file named `clean_rewritten.pdf` containing the formatted articles.
-*   `output/logs.txt`: This file will contain the execution logs.
+*  `output/logs.txt`: This file will contain the execution logs.
 
 ## Error Handling
 
@@ -124,39 +125,34 @@ The project is equipped with comprehensive error handling and logging capabiliti
 
 ```bash
 NewsCrawler/
-├── main.py                    # Entry point, orchestrates the workflow
-├── config.py                  # Configuration settings (API keys, DB details)
-├── web_app.py                 # FastAPI app for subscription form.
-├── utils/                     
-│   ├── logger.py              # Logging functionalities
-│   ├── errors.py              # Custom error handling
-│   ├── helpers.py             # Helper functions (e.g., sanitize_filename)
-├── scrapers/                  
-│   ├── firecrawl_scraper.py   # Firecrawl-specific scraping
-├── processors/                
-│   ├── csv_processor.py       # CSV related operations
-│   ├── markdown_processor.py  # Markdown related operations
-│   ├── content_cleaner.py     # Content Cleaning operations
-│   ├── gemini_rewriter.py     # LLM operations (Google Gemini)
-│   ├── openai_rewriter.py     # LLM operations (OpenAI)
-│   ├── pdf_generator.py       # PDF operations
-├── templates/                 
-│   ├── index.html             # Subscription form HTML page
-│   ├── success.html           # Successful subscription page
-│   ├── already_subscribed.html # Already subscribed page
-├── static/                    
-│   ├── styles.css             # Stylesheet for web app
-├── requirements.txt           # To store the Python library names
-├── .env                       # Configuration parameters (API keys, database details)
-├── fonts/                     
-│   └── timr45w.ttf            # Font File for PDF
-├── output/                    
-│   ├── initial_md_files/      # Scraped markdown files
-│   ├── csv/                   # CSV files (all_articles.csv, cleaned_articles.csv, top_articles.csv)
-│   ├── content_md_files/     # Articles scraped from links in top_articles.csv
-│   ├── json/                  # JSON files (cleaned_articles.json, rewritten_articles.json)
-│   ├── pdfs/                  # Generated PDF (clean_rewritten.pdf)
-│   └── logs.txt               # Execution logs
+├── api/
+│ └── main.py                          # FastAPI app for subscription form
+├── main.py                            # Core script, handles scraping, processing, email (run separately)
+├── config.py                          # Configuration settings (API keys, DB details)
+├── services.py                        # Service functions for  Loading Subscriber mail address and sending email
+├── utils/
+│ ├── logger.py                        # Logging functionalities
+│ ├── errors.py                        # Custom error handling
+│ ├── helpers.py                       # Helper functions (sanitize_filename)
+├── scrapers/
+│ ├── firecrawl_scraper.py             # Firecrawl-specific scraping
+├── processors/
+│ ├── csv_processor.py                 # CSV related operations
+│ ├── markdown_processor.py            # Markdown related operations
+│ ├── content_cleaner.py               # Content Cleaning operations
+│ ├── gemini_rewriter.py               # LLM operations
+│ ├── openai_rewriter.py               # LLM operations using OpenAI
+│ ├── pdf_generator.py                 # PDF operations
+├── templates/
+│ ├── index.html                       # Subscription form html page
+│ ├── success.html                     # Successful subscription page
+│ ├── already_subscribed.html          #Already subscribed page
+├── static/
+│ ├── styles.css                       # Stylesheet for web app
+├── requirements.txt                   # To store the python library names
+├── .env                               # Configuration parameters (API keys, database details). Should be gitignored
+└── fonts/
+    └── timr45w.ttf                    # Font File for pdf
 ```
 
 ## Future Enhancements
