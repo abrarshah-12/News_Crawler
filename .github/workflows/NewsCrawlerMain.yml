@@ -1,9 +1,9 @@
-name: News Crawler - Imobisoft
+name: Python CI/CD Pipeline
 
 on:
   push:
     branches:
-      - main
+      - master
   workflow_dispatch:
 
 jobs:
@@ -11,26 +11,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Python version
+      - name: Set up Python
         uses: actions/setup-python@v2
         with:
           python-version: '3.11'
 
-      - name: Create and start virtual environment
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-
       - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Zip artifact for deployment
         run: |
-          zip -r release.zip . -x 'venv/**'
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Upload artifact for deployment jobs
+      - name: Prepare deployment package
+        run: |
+          rm -rf build
+          mkdir build
+          shopt -s extglob
+          cp -r !(build) build/
+          cd build
+          zip -r ../release.zip . -x "*.git*" "venv/**"
+
+      - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: python-app
@@ -41,25 +44,18 @@ jobs:
     needs: build
 
     steps:
-      - name: Download artifact from build job
+      - name: Download artifact
         uses: actions/download-artifact@v3
         with:
           name: python-app
 
-      - name: Unzip artifact for deployment
-        run: unzip release.zip
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
         with:
           app-name: 'NewsCrawlerImobi'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_NEWSCRAWLERIMOBI }}
-
-      - name: Set startup command
-        uses: azure/appservice-settings@v1
-        with:
-          app-name: 'NewsCrawlerImobi'
-          settings: |
-            {
-              "appCommandLine": "gunicorn --bind=0.0.0.0 --timeout 600 app:app"
-            }
