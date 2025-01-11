@@ -54,3 +54,12 @@ jobs:
         with:
           app-name: 'NewsCrawlerImobi'
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_NEWSCRAWLERIMOBI }}
+
+      - name: Set startup command
+        uses: azure/appservice-settings@v1
+        with:
+          app-name: 'NewsCrawlerImobi'
+          settings: |
+            {
+              "appCommandLine": "gunicorn --bind=0.0.0.0 --timeout 600 app:app"
+            }
