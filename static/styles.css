@@ -4,17 +4,20 @@ body {
     font-family: Arial, sans-serif;
     color: #e0e0e0;
     background: #1b1b1b;
-    overflow: hidden;
+    overflow: auto; /* Changed to auto to allow scroll if content exceeds */
 }
 
 .background-overlay {
-    position: relative;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100vh;
     background: url('/static/newspaper-bg.jpg') no-repeat center center fixed;
     background-size: cover;
     filter: brightness(0.6);
-    animation: fadeNewspapers 8s infinite alternate;
+    z-index: -1; /* Send the overlay to the back */
+     animation: fadeNewspapers 8s infinite alternate;
 }
 
 /* Animations */
@@ -24,15 +27,14 @@ body {
 }
 
 .container {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 400px;
+    position: relative; /* Changed to relative for use inside body */
+    margin: 50px auto;
+    padding: 20px;
+    width: 80%;
+    max-width: 900px; /* to make it responsive */
     background: rgba(0, 0, 0, 0.85);
     border: 1px solid #444;
     border-radius: 8px;
-    padding: 20px;
     text-align: center;
     box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.7);
 }
@@ -40,12 +42,12 @@ body {
 .container h1 {
     margin-bottom: 15px;
     color: #f5f5f5;
-    font-size: 1.5em;
+    font-size: 1.8em;  /* Increased font size */
 }
 
 .container p {
     margin-bottom: 20px;
-    font-size: 1em;
+    font-size: 1.1em;  /* Increased font size */
     color: #bbbbbb;
 }
 
@@ -53,12 +55,12 @@ body {
 .input-field {
     width: calc(100% - 22px);
     margin-bottom: 15px;
-    padding: 10px;
+    padding: 12px; /* Increased padding */
     border: 1px solid #555;
     border-radius: 5px;
     background: #2b2b2b;
     color: #fff;
-    font-size: 1em;
+    font-size: 1.1em; /* Increased font size */
 }
 
 .input-field::placeholder {
@@ -68,12 +70,12 @@ body {
 /* Buttons */
 .submit-button {
     width: 100%;
-    padding: 10px 15px;
+    padding: 12px 18px;  /* Increased padding */
     border: none;
     border-radius: 5px;
     background: linear-gradient(135deg, #ff5f6d, #ffc371);
     color: #fff;
-    font-size: 1em;
+    font-size: 1.1em; /* Increased font size */
     font-weight: bold;
     cursor: pointer;
     transition: transform 0.2s ease, background 0.3s ease;
@@ -84,12 +86,65 @@ body {
     background: linear-gradient(135deg, #ffc371, #ff5f6d);
 }
 
-/* Newspaper Animation */
-@keyframes newspaperHover {
-    from {
-        filter: brightness(0.8);
-    }
-    to {
-        filter: brightness(1.2);
-    }
+/* Report Links */
+.report-link {
+    display: inline-block;
+    margin-right: 10px;
+    color: #0056b3;
+    text-decoration: none;
+    border-bottom: 1px solid #0056b3; /* Underline on hover */
+    transition: color 0.3s, border-bottom 0.3s;
+     font-size: 1.1em; /* Increased font size */
+}
+
+.report-link:hover {
+    text-decoration: underline;
+    color: #46a7ff;
+    border-bottom: 1px solid #46a7ff;
+}
+
+/* List for reports */
+
+.container ul{
+    list-style: none;
+    padding: 0;
+}
+
+.container ul li{
+   margin-bottom: 5px;
+}
+/* Report Table */
+.reports-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    color: white;
+}
+
+.reports-table th, .reports-table td {
+    padding: 10px;
+    border: 1px solid #555;
+    text-align: center;
+}
+
+.reports-table th {
+    background-color: #333;
+     color: white;
+}
+
+.reports-table tbody tr:nth-child(even) {
+    background-color: #2b2b2b;
+}
+.download-button{
+    padding: 8px 12px;
+    background: linear-gradient(135deg, #ff5f6d, #ffc371);
+    color: #fff;
+    text-decoration: none;
+     border-radius: 4px;
+    font-weight: bold;
+     transition: transform 0.2s ease, background 0.3s ease;
+}
+.download-button:hover{
+      transform: translateY(-3px);
+    background: linear-gradient(135deg, #ffc371, #ff5f6d);
 }

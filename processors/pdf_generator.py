@@ -1,22 +1,24 @@
+# processors/pdf_generator.py
 import os
 import re
 import json
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak, ListFlowable, ListItem
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.colors import blue, black
-from datetime import datetime
+from reportlab.lib.utils import simpleSplit
+from reportlab.lib.styles import StyleSheet1
+from reportlab.lib.colors import black
 from config import TIMES_NEW_ROMAN_FONT_PATH, PDF_DIR
 from utils.logger import log, log_exception
 from utils.errors import FileProcessingError
-
-# Register the Times New Roman font
-pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
+import glob
+import datetime
 
 def process_and_save_articles(input_json_path, output_pdf_path):
     """Reads JSON, rewrites articles with Gemini, saves to a PDF file."""
@@ -26,52 +28,47 @@ def process_and_save_articles(input_json_path, output_pdf_path):
             articles = json.load(json_file)
 
         # PDF setup
+        pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
         doc = SimpleDocTemplate(output_pdf_path, pagesize=letter)
         page_width, page_height = letter
         margin = inch
         story = []
 
-        # Title Page Styling
+        def add_header_and_footer(canvas, doc, page_num):
+            """Adds a footer with the page number."""
+            canvas.saveState()
+            canvas.setFont("Times-Roman", 10)
+            canvas.drawCentredString(doc.width / 2, 0.5 * inch, f"{page_num}")
+            canvas.restoreState()
+
+        def on_page(canvas, doc, page_num):
+            add_header_and_footer(canvas, doc, page_num)
+        
+        # Title page
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
             name="TitleStyle",
             fontName="Times-Bold",
-            fontSize=36,
+            fontSize=28,
             alignment=TA_CENTER,
-            textColor=black,
-            spaceAfter=20
+             spaceAfter = 10
         )
         subtitle_style = ParagraphStyle(
             name="SubTitleStyle",
             fontName="Times-Italic",
-            fontSize=18,
+            fontSize=16,
             alignment=TA_CENTER,
-            textColor=blue,
-            spaceAfter=40
+            spaceAfter = 20
         )
-        date_style = ParagraphStyle(
-            name="DateStyle",
-            fontName="Times-Roman",
-            fontSize=14,
-            alignment=TA_CENTER,
-            textColor=black,
-            spaceAfter=30
-        )
-
-        # Title page content
         title = Paragraph("UK Crime Chronicles 2025", title_style)
         subtitle = Paragraph("A Deep Dive into Recent Headlines and Stories", subtitle_style)
-        current_date = Paragraph(datetime.now().strftime("%B %d, %Y"), date_style)
-
-        # Add title page elements
-        story.append(Spacer(1, 2 * inch))  # Add space before title
         story.append(title)
         story.append(subtitle)
-        story.append(current_date)
-        story.append(Spacer(1, 4 * inch))  # Add space after the date
+        story.append(Spacer(1, 2 * inch)) # Add space after subtitle
         story.append(PageBreak())
 
-        # Content Styling
+        # Styles for content
+        styles = getSampleStyleSheet()
         headline_style = ParagraphStyle(
             name="HeadlineStyle",
             fontName="Times-Bold",
@@ -91,55 +88,64 @@ def process_and_save_articles(input_json_path, output_pdf_path):
         link_style = ParagraphStyle(
             name="LinkStyle",
             fontName="Times-Roman",
-            fontSize=10,
+             fontSize=10,
             alignment=TA_JUSTIFY,
-            leading=12,
-            spaceAfter=12,
+             leading = 12,
+             spaceAfter=12,
             textColor=blue,
-            underline=True,
-        )
+            underline = True,
 
+        )
+        normal_style = ParagraphStyle(
+            name="normal",
+            fontName = "Times-Roman",
+            fontSize = 10,
+            textColor=black
+        )
         for article in articles:
-            headline = article.get("headline", "")
-            content = article.get("content", "")
-            source = article.get("source", "original")
-            url = article.get("url", "")
+              headline = article.get("headline", "")
+              content = article.get("content", "")
+              source = article.get("source", "original")
+              url = article.get("url", "")
 
-            if not headline or headline == "N/A":
-                continue
+              if not headline or headline == "N/A":
+                 continue
 
-            # Add headline
-            story.append(Paragraph(headline, headline_style))
+              # Add headline
+              story.append(Paragraph(headline, headline_style))
 
-            # Add content paragraphs
-            paragraphs = content.split('\n\n')  # Split content into paragraphs
-            for paragraph in paragraphs:
-                paragraph = paragraph.strip()
-                if paragraph:
-                    story.append(Paragraph(paragraph, content_style))
+              # Split the content into paragraphs by looking for newlines
+              paragraphs = content.split('\n\n')
+              for paragraph in paragraphs:
+                  paragraph = paragraph.strip()
+                  if paragraph:
+                      content_para = Paragraph(paragraph, content_style)
+                      story.append(content_para)
 
-            # Add source link
-            if source != "original" and url:
-                safe_url = url.replace("'", "&apos;")
-                source_link = f"<a href='{safe_url}'>Source</a>"
-                story.append(Paragraph(source_link, link_style))
-            story.append(Spacer(1, 0.5 * inch))
-
-        # Build PDF with header and footer
-        def add_header_and_footer(canvas, doc, page_num):
-            """Adds a footer with the page number."""
-            canvas.saveState()
-            canvas.setFont("Times-Roman", 10)
-            canvas.drawCentredString(doc.width / 2, 0.5 * inch, f"Page {page_num}")
-            canvas.restoreState()
-
-        doc.build(
-            story,
-            onFirstPage=lambda canvas, doc: add_header_and_footer(canvas, doc, 1),
-            onLaterPages=lambda canvas, doc: add_header_and_footer(canvas, doc, doc.page)
-        )
+              # Add the link to the source
+              if source != "original" and url:
+                  source_link = f"<a href='{url}'>Source</a>"
+                  source_link_para = Paragraph(f"{source_link}", link_style)
+                  story.append(source_link_para)
+              story.append(Spacer(1, 0.5 * inch))
+        
+        # Save the new PDF
+        doc.build(story, onFirstPage=lambda canvas, doc: on_page(canvas, doc, 1),
+                onLaterPages=lambda canvas, doc: on_page(canvas, doc, doc.page))
 
         log(f"PDF saved to {output_pdf_path}")
+        
+    
+        all_files = sorted(glob.glob(os.path.join(PDF_DIR, "*.pdf")), key=os.path.getctime, reverse=True)
+         # Maintain only 5 most recent files
+        if len(all_files) > 5:
+            for file_to_remove in all_files[5:]:
+                try:
+                   os.remove(file_to_remove)
+                   log(f"Removed old pdf report {file_to_remove}")
+                except Exception as e:
+                    log_exception(e, f"Error deleting file {file_to_remove}")
+
         log(f"Finished processing all articles from {input_json_path}")
     except Exception as e:
         log_exception(e, f"Error during PDF generation: {e}")

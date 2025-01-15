@@ -14,7 +14,6 @@ from utils.helpers import sanitize_filename
 from utils.errors import FirecrawlError, FileProcessingError, GeminiError, ProcessingError
 from services import load_subscribers, send_email
 
-
 def main():
     configure_logger()
     log(f"Starting the news processing pipeline at: {datetime.datetime.now()}")
@@ -97,9 +96,10 @@ def main():
               log_exception(e, "Error during rewriting articles with Gemini")
 
 
-        # Step 9: Generate PDF
+        # Step 9: Generate PDF, by adding current timestamp to file name
         input_json_path = os.path.join(JSON_DIR, "rewritten_articles.json")
-        output_pdf_path = os.path.join(PDF_DIR, "Daily Report.pdf")
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        output_pdf_path = os.path.join(PDF_DIR, f"Daily Report {timestamp}.pdf")
         try:
            process_and_save_articles(input_json_path, output_pdf_path)
         except FileProcessingError as e:
