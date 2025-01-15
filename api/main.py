@@ -1,16 +1,21 @@
 import os
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from fastapi import FastAPI, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import psycopg2
-from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD, PDF_DIR
 from utils.logger import log
 from utils.errors import FileProcessingError
+import os
+import glob
+from datetime import datetime
+from typing import List, Dict
+
 
 app = FastAPI()
 
@@ -18,8 +23,8 @@ app = FastAPI()
 static_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'static'))
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
+template_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+templates = Jinja2Templates(directory=os.path.join(template_dir, "templates"))
 
 # Database connection function
 def get_db_connection():
@@ -84,7 +89,7 @@ async def subscribe(request: Request, name: str = Form(...), email: str = Form(.
             existing_subscriber = cur.fetchone()
             if existing_subscriber:
                 return templates.TemplateResponse(
-                    "already_subscribed.html", {"request": request, "email": email}
+                    "already_subscribed.html", {"request": request, "email": email, "name":name}
                 )
             else:
                 cur.execute(
@@ -97,13 +102,50 @@ async def subscribe(request: Request, name: str = Form(...), email: str = Form(.
                     "success.html", {"request": request, "name": name, "email": email}
                 )
     except Exception as e:
-        log(f"Subscription database error: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
+         log(f"Subscription database error: {e}")
+         raise HTTPException(status_code=500, detail="Internal Server Error")
     finally:
          if conn:
             conn.close()
 
-# Main entry point for running the application
+def get_pdf_reports() -> List[Dict]:
+    """Retrieves information about available PDF reports."""
+    reports = []
+    if os.path.exists(PDF_DIR):
+        files_with_times = []
+        for filename in glob.glob(os.path.join(PDF_DIR, "*.pdf")):
+            try:
+                creation_time = os.path.getctime(filename)
+                files_with_times.append((filename, creation_time))
+            except Exception as e:
+               log(f"Error getting pdf report information for {filename}: {e}", level = 40)
+
+        # Sort by creation time in descending order
+        files_with_times.sort(key=lambda item: item[1], reverse = True)
+        
+        # Show only top 5 reports
+        for filename, creation_time in files_with_times[:5]:
+             date = datetime.fromtimestamp(creation_time).strftime("%Y-%m-%d %I:%M %p")
+             reports.append({"name": os.path.basename(filename), "path": filename, "date": date})
+
+    return reports
+
+@app.get("/reports", response_class=HTMLResponse)
+async def list_reports(request: Request):
+  """Displays a list of available PDF reports with download links."""
+  reports = get_pdf_reports()
+  return templates.TemplateResponse("reports.html", {"request": request, "reports": reports})
+
+@app.get("/download/{filename}")
+async def download_report(filename: str):
+    """Downloads a specific PDF report."""
+    pdf_path = os.path.join(PDF_DIR, filename)
+    if os.path.exists(pdf_path):
+        return FileResponse(pdf_path, filename=filename, media_type="application/pdf")
+    else:
+        raise HTTPException(status_code=404, detail="File not found")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="127.0.0.1", port=8000)
