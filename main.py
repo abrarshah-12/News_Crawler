@@ -41,7 +41,7 @@ def main():
             else:
                 log(f"No content returned from: {source_url}")
 
-         # Step 3: Save articles to CSV
+        # Step 3: Save articles to CSV
         if all_articles:
           base_name = "all_articles"
           try:
@@ -56,7 +56,7 @@ def main():
         input_csv_path = os.path.join(CSV_DIR, "all_articles.csv")
         output_csv_path = os.path.join(CSV_DIR, "cleaned_articles.csv")
         try:
-           clean_csv(input_csv_path, output_csv_path)
+          clean_csv(input_csv_path, output_csv_path)
         except FileProcessingError as e:
             log_exception(e, "Error cleaning CSV")
 
@@ -64,13 +64,13 @@ def main():
         input_csv_path = os.path.join(CSV_DIR, "cleaned_articles.csv")
         output_csv_path = os.path.join(CSV_DIR, "top_articles.csv")
         try:
-           select_and_save_top_articles(input_csv_path, output_csv_path)
+          select_and_save_top_articles(input_csv_path, output_csv_path)
         except FileProcessingError as e:
-           log_exception(e, "Error selecting top articles from CSV")
+          log_exception(e, "Error selecting top articles from CSV")
 
         # Step 6: Scrape and save content from the top articles to MD files
         try:
-           save_articles_to_md(output_csv_path)
+          save_articles_to_md(output_csv_path)
         except FileProcessingError as e:
           log_exception(e, "Error during saving articles to content markdown files")
 
@@ -78,11 +78,11 @@ def main():
         input_md_dir = os.path.join(JSON_DIR, "..", "content_md_files")
         output_json_path = os.path.join(JSON_DIR, "cleaned_articles.json")
         try:
-           process_and_save_cleaned_content(input_md_dir, output_json_path)
+          process_and_save_cleaned_content(input_md_dir, output_json_path)
         except FileProcessingError as e:
             log_exception(e, "Error processing and saving cleaned content to JSON")
 
-         # Step 8: Rewrite content with OpenAI then fall back to gemini if needed
+        # Step 8: Rewrite content with OpenAI then fall back to gemini if needed
         input_json_path = os.path.join(JSON_DIR, "cleaned_articles.json")
         output_json_path = os.path.join(JSON_DIR, "rewritten_articles.json")
         try:
@@ -101,7 +101,7 @@ def main():
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         output_pdf_path = os.path.join(PDF_DIR, f"Daily Report {timestamp}.pdf")
         try:
-           process_and_save_articles(input_json_path, output_pdf_path)
+          process_and_save_articles(input_json_path, output_pdf_path)
         except FileProcessingError as e:
           log_exception(e, "Error generating the PDF")
           return # Stop processing
@@ -113,7 +113,7 @@ def main():
         log("Finished the news processing pipeline successfully.")
 
     except Exception as e:
-       log_exception(e, "An unexpected error occurred during the pipeline")
+      log_exception(e, "An unexpected error occurred during the pipeline")
 
 if __name__ == "__main__":
     main()
