@@ -1,24 +1,24 @@
 # processors/pdf_generator.py
 import os
-import re
+# import re
 import json
-from reportlab.pdfgen import canvas
+# from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak, ListFlowable, ListItem
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, PageBreak #, ListFlowable, ListItem
+from reportlab.lib.styles import ParagraphStyle #, getSampleStyleSheet
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.lib.colors import blue, black
-from reportlab.lib.utils import simpleSplit
-from reportlab.lib.styles import StyleSheet1
-from reportlab.lib.colors import black
+from reportlab.lib.colors import blue #, black
+# from reportlab.lib.utils import simpleSplit
+# from reportlab.lib.styles import StyleSheet1
+# from reportlab.lib.colors import black
 from config import TIMES_NEW_ROMAN_FONT_PATH, PDF_DIR
 from utils.logger import log, log_exception
 from utils.errors import FileProcessingError
 import glob
-import datetime
+# import datetime
 
 def process_and_save_articles(input_json_path, output_pdf_path):
     """Reads JSON, rewrites articles with Gemini, saves to a PDF file."""
@@ -30,8 +30,8 @@ def process_and_save_articles(input_json_path, output_pdf_path):
         # PDF setup
         pdfmetrics.registerFont(TTFont('Times-Roman', TIMES_NEW_ROMAN_FONT_PATH))
         doc = SimpleDocTemplate(output_pdf_path, pagesize=letter)
-        page_width, page_height = letter
-        margin = inch
+        # page_width, page_height = letter
+        # margin = inch
         story = []
 
         def add_header_and_footer(canvas, doc, page_num):
@@ -45,7 +45,7 @@ def process_and_save_articles(input_json_path, output_pdf_path):
             add_header_and_footer(canvas, doc, page_num)
         
         # Title page
-        styles = getSampleStyleSheet()
+        # styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
             name="TitleStyle",
             fontName="Times-Bold",
@@ -68,7 +68,7 @@ def process_and_save_articles(input_json_path, output_pdf_path):
         story.append(PageBreak())
 
         # Styles for content
-        styles = getSampleStyleSheet()
+        # styles = getSampleStyleSheet()
         headline_style = ParagraphStyle(
             name="HeadlineStyle",
             fontName="Times-Bold",
@@ -96,12 +96,12 @@ def process_and_save_articles(input_json_path, output_pdf_path):
             underline = True,
 
         )
-        normal_style = ParagraphStyle(
-            name="normal",
-            fontName = "Times-Roman",
-            fontSize = 10,
-            textColor=black
-        )
+        # normal_style = ParagraphStyle(
+        #     name="normal",
+        #     fontName = "Times-Roman",
+        #     fontSize = 10,
+        #     textColor=black
+        # )
         for article in articles:
               headline = article.get("headline", "")
               content = article.get("content", "")
